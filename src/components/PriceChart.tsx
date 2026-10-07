@@ -12,7 +12,7 @@ export function PriceChart({ symbol }: { symbol: string }) {
     queryKey: ["chart", symbol, range],
     queryFn: () => getChart({ data: { symbol, range } }),
   });
-  const up = data.length > 1 && data[data.length - 1].c >= data[0].c;
+  const up = (data[data.length - 1]?.c ?? 0) >= (data[0]?.c ?? 0);
   const color = up ? "var(--success)" : "var(--destructive)";
   return (
     <div>
