@@ -67,7 +67,7 @@ function Calculator({ kind }: { kind: keyof typeof products }) {
       <ul className="space-y-1 text-sm text-muted-foreground">{p.perks.map((x) => <li key={x}>• {x}</li>)}</ul>
       <div>
         <div className="mb-2 flex justify-between text-sm"><span className="text-muted-foreground">Amount</span><span className="num">{fmt(amount, 0)}</span></div>
-        <Slider min={1000} max={p.max} step={1000} value={[amount]} onValueChange={(v) => setAmount(v[0])} />
+        <Slider min={1000} max={p.max} step={1000} value={[amount]} onValueChange={(v) => setAmount(v[0] ?? 1000)} />
       </div>
       <div>
         <p className="mb-2 text-sm text-muted-foreground">Term</p>

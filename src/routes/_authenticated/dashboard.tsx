@@ -145,7 +145,7 @@ function Stat({ label, value, sub, tone }: { label: string; value: string; sub?:
   );
 }
 
-function TradeTicket({ symbol, onSymbol, price, cash, owned }: { symbol: string; onSymbol: (s: string) => void; price?: number; cash: number; owned: number }) {
+function TradeTicket({ symbol, onSymbol, price, cash, owned }: { symbol: string; onSymbol: (s: string) => void; price?: number | undefined; cash: number; owned: number }) {
   const qc = useQueryClient();
   const trade = useServerFn(placeTrade);
   const [side, setSide] = useState<"buy" | "sell">("buy");
