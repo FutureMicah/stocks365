@@ -14,13 +14,180 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      holdings: {
+        Row: {
+          avg_cost: number
+          qty: number
+          symbol: string
+          user_id: string
+        }
+        Insert: {
+          avg_cost?: number
+          qty?: number
+          symbol: string
+          user_id: string
+        }
+        Update: {
+          avg_cost?: number
+          qty?: number
+          symbol?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      loans: {
+        Row: {
+          balance: number
+          created_at: string
+          id: string
+          kind: string
+          monthly_payment: number
+          principal: number
+          rate: number
+          status: string
+          term_months: number
+          user_id: string
+        }
+        Insert: {
+          balance: number
+          created_at?: string
+          id?: string
+          kind: string
+          monthly_payment: number
+          principal: number
+          rate: number
+          status?: string
+          term_months: number
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          id?: string
+          kind?: string
+          monthly_payment?: number
+          principal?: number
+          rate?: number
+          status?: string
+          term_months?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          cash: number
+          created_at: string
+          full_name: string | null
+          id: string
+          phone: string | null
+        }
+        Insert: {
+          cash?: number
+          created_at?: string
+          full_name?: string | null
+          id: string
+          phone?: string | null
+        }
+        Update: {
+          cash?: number
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          method: string | null
+          note: string | null
+          price: number | null
+          qty: number | null
+          symbol: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          method?: string | null
+          note?: string | null
+          price?: number | null
+          qty?: number | null
+          symbol?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          method?: string | null
+          note?: string | null
+          price?: number | null
+          qty?: number | null
+          symbol?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      watchlist: {
+        Row: {
+          created_at: string
+          symbol: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          symbol: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          symbol?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cash_move: {
+        Args: { _amount: number; _method: string; _type: string; _uid: string }
+        Returns: undefined
+      }
+      execute_trade: {
+        Args: {
+          _price: number
+          _qty: number
+          _side: string
+          _symbol: string
+          _uid: string
+        }
+        Returns: undefined
+      }
+      open_loan: {
+        Args: {
+          _kind: string
+          _principal: number
+          _rate: number
+          _term: number
+          _uid: string
+        }
+        Returns: undefined
+      }
+      repay_loan: {
+        Args: { _amount: number; _loan: string; _uid: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
