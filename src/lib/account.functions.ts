@@ -23,12 +23,13 @@ export const placeTrade = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const q = await fetchQuote(data.symbol);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("execute_trade", {
+    const { error } = await supabaseAdmin.rpc("execute_trade_v2", {
       _uid: context.userId,
       _symbol: q.symbol,
       _side: data.side,
       _qty: data.qty,
       _price: q.price,
+      _fee_rate: 0.005,
     });
     clean(error);
     return { price: q.price, symbol: q.symbol };
