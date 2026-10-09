@@ -1,12 +1,8 @@
-import { TrendingUp } from "lucide-react";
-
-export function Logo() {
+export function Logo({ inverted = false }: { inverted?: boolean }) {
   return (
-    <span className="flex items-center gap-2 font-display text-lg font-bold">
-      <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-primary-foreground">
-        <TrendingUp className="h-4 w-4" />
-      </span>
-      stocks<span className="text-brand">365</span>
+    <span className={`flex items-center gap-1.5 text-lg font-extrabold tracking-tight ${inverted ? "text-deep-foreground" : "text-foreground"}`}>
+      <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-xs font-extrabold text-primary-foreground">S</span>
+      STOCKS<span className="text-primary">365</span>
     </span>
   );
 }

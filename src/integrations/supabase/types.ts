@@ -76,25 +76,46 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
           cash: number
           created_at: string
+          date_of_birth: string | null
           full_name: string | null
           id: string
+          id_document_path: string | null
+          id_type: string | null
+          kyc_status: string
+          kyc_submitted_at: string | null
           phone: string | null
+          ssn_last4: string | null
         }
         Insert: {
+          address?: string | null
           cash?: number
           created_at?: string
+          date_of_birth?: string | null
           full_name?: string | null
           id: string
+          id_document_path?: string | null
+          id_type?: string | null
+          kyc_status?: string
+          kyc_submitted_at?: string | null
           phone?: string | null
+          ssn_last4?: string | null
         }
         Update: {
+          address?: string | null
           cash?: number
           created_at?: string
+          date_of_birth?: string | null
           full_name?: string | null
           id?: string
+          id_document_path?: string | null
+          id_type?: string | null
+          kyc_status?: string
+          kyc_submitted_at?: string | null
           phone?: string | null
+          ssn_last4?: string | null
         }
         Relationships: []
       }
@@ -102,6 +123,7 @@ export type Database = {
         Row: {
           amount: number
           created_at: string
+          fee: number
           id: string
           method: string | null
           note: string | null
@@ -114,6 +136,7 @@ export type Database = {
         Insert: {
           amount: number
           created_at?: string
+          fee?: number
           id?: string
           method?: string | null
           note?: string | null
@@ -126,6 +149,7 @@ export type Database = {
         Update: {
           amount?: number
           created_at?: string
+          fee?: number
           id?: string
           method?: string | null
           note?: string | null
@@ -166,6 +190,17 @@ export type Database = {
       }
       execute_trade: {
         Args: {
+          _price: number
+          _qty: number
+          _side: string
+          _symbol: string
+          _uid: string
+        }
+        Returns: undefined
+      }
+      execute_trade_v2: {
+        Args: {
+          _fee_rate: number
           _price: number
           _qty: number
           _side: string
