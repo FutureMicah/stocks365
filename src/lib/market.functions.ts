@@ -1,13 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { fetchQuote, fetchChart } from "./market.server";
+import { fetchQuote, fetchChart, fetchQuoteWithSpark } from "./market.server";
 
 const sym = z.string().trim().toUpperCase().regex(/^[A-Z0-9.^=-]{1,12}$/);
 
 export const getQuotes = createServerFn({ method: "GET" })
-  .inputValidator((d) => z.object({ symbols: z.array(sym).max(30) }).parse(d))
+  .inputValidator((d) => z.object({ symbols: z.array(sym).max(30), spark: z.boolean().optional() }).parse(d))
   .handler(async ({ data }) => {
-    const out = await Promise.all(data.symbols.map((s) => fetchQuote(s).catch(() => null)));
+    const f = data.spark ? fetchQuoteWithSpark : fetchQuote;
+    const out = await Promise.all(data.symbols.map((s) => f(s).catch(() => null)));
     return out.filter((q): q is NonNullable<typeof q> => q !== null);
   });
 

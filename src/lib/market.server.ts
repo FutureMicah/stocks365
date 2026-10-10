@@ -1,11 +1,19 @@
 export type Quote = {
   symbol: string;
   name: string;
+  exchange: string;
   price: number;
   prevClose: number;
   change: number;
   changePct: number;
+  dayHigh: number | null;
+  dayLow: number | null;
+  volume: number | null;
+  high52: number | null;
+  low52: number | null;
+  marketTime: number;
   currency: string;
+  spark?: number[];
 };
 
 const UA = { "User-Agent": "Mozilla/5.0 (compatible; stocks365/1.0)" };
@@ -28,20 +36,44 @@ async function yahoo(symbol: string, range: string) {
   return r;
 }
 
-export async function fetchQuote(symbol: string): Promise<Quote> {
-  const r = await yahoo(symbol, "1d");
+const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+function toQuote(r: any): Quote {
   const m = r.meta;
   const price = Number(m.regularMarketPrice);
-  const prev = Number(m.chartPreviousClose ?? m.previousClose ?? price);
+  let changePct = n(m.regularMarketChangePercent);
+  let prev = n(m.previousClose) ?? (m.range === "1d" ? n(m.chartPreviousClose) : null);
+  if (prev == null && changePct != null) prev = price / (1 + changePct / 100);
+  if (prev == null) prev = price;
+  if (changePct == null) changePct = prev ? ((price - prev) / prev) * 100 : 0;
   return {
     symbol: m.symbol,
-    name: m.shortName ?? m.longName ?? m.symbol,
+    name: m.longName ?? m.shortName ?? m.symbol,
+    exchange: m.fullExchangeName ?? m.exchangeName ?? "",
     price,
     prevClose: prev,
     change: price - prev,
-    changePct: prev ? ((price - prev) / prev) * 100 : 0,
+    changePct,
+    dayHigh: n(m.regularMarketDayHigh),
+    dayLow: n(m.regularMarketDayLow),
+    volume: n(m.regularMarketVolume),
+    high52: n(m.fiftyTwoWeekHigh),
+    low52: n(m.fiftyTwoWeekLow),
+    marketTime: (n(m.regularMarketTime) ?? 0) * 1000,
     currency: m.currency ?? "USD",
   };
+}
+
+export async function fetchQuote(symbol: string): Promise<Quote> {
+  return toQuote(await yahoo(symbol, "1d"));
+}
+
+export async function fetchQuoteWithSpark(symbol: string): Promise<Quote> {
+  const r = await yahoo(symbol, "1mo");
+  const q = toQuote(r);
+  const closes: (number | null)[] = r.indicators?.quote?.[0]?.close ?? [];
+  q.spark = closes.filter((c): c is number => typeof c === "number");
+  return q;
 }
 
 export async function fetchChart(symbol: string, range: string) {
