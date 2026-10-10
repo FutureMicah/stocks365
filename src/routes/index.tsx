@@ -138,7 +138,7 @@ function Hero() {
               </div>
             );
           })}
-          <p className="text-xs text-muted-foreground sm:col-span-2">ETF prices tracking each index. Updated every 30 seconds{map.SPY ? ` · last trade ${new Date(map.SPY.marketTime).toLocaleString()}` : ""}.</p>
+          <p className="text-xs text-muted-foreground sm:col-span-2">ETF prices tracking each index. Updated every 30 seconds{map["SPY"] ? ` · last trade ${new Date(map["SPY"].marketTime).toLocaleString()}` : ""}.</p>
         </div>
       </div>
     </section>
