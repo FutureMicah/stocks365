@@ -333,7 +333,7 @@ function Learn() {
 }
 
 function Faq() {
-  const qs = [
+  const qs: readonly (readonly [string, string])[] = [
     ["How much do I need to start?", "You can place an order from $1 thanks to fractional shares."],
     ["Is my money safe?", "Client assets are kept separate from the company's own funds. All investments still carry market risk."],
     ["Can I lose money?", "Yes. Stock and ETF prices go up and down, and you can get back less than you invest."],

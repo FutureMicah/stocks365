@@ -16,7 +16,7 @@ export type Quote = {
   spark?: number[];
 };
 
-const UA = { "User-Agent": "Mozilla/5.0 (compatible; stocks365/1.0)" };
+const UA = { "User-Agent": "Mozilla/5.0", "Accept": "application/json" };
 const intervals: Record<string, string> = {
   "1d": "5m",
   "5d": "30m",
@@ -28,7 +28,8 @@ const intervals: Record<string, string> = {
 
 async function yahoo(symbol: string, range: string) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${intervals[range] ?? "1d"}`;
-  const res = await fetch(url, { headers: UA });
+  let res = await fetch(url, { headers: UA, signal: AbortSignal.timeout(12000) });
+  if (!res.ok) res = await fetch(url.replace("query1.", "query2."), { headers: UA, signal: AbortSignal.timeout(12000) });
   if (!res.ok) throw new Error(`Quote lookup failed (${res.status})`);
   const json = (await res.json()) as any;
   const r = json?.chart?.result?.[0];
@@ -40,7 +41,8 @@ const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : nul
 
 function toQuote(r: any): Quote {
   const m = r.meta;
-  const price = Number(m.regularMarketPrice);
+  const price = n(m.regularMarketPrice);
+  if (price == null || price <= 0) throw new Error("Market price unavailable");
   let changePct = n(m.regularMarketChangePercent);
   let prev = n(m.previousClose) ?? (m.range === "1d" ? n(m.chartPreviousClose) : null);
   if (prev == null && changePct != null) prev = price / (1 + changePct / 100);
@@ -69,8 +71,8 @@ export async function fetchQuote(symbol: string): Promise<Quote> {
 }
 
 export async function fetchQuoteWithSpark(symbol: string): Promise<Quote> {
-  const r = await yahoo(symbol, "1mo");
-  const q = toQuote(r);
+  const [q, r] = await Promise.all([fetchQuote(symbol), yahoo(symbol, "1mo").catch(() => null)]);
+  if (!r) return q;
   const closes: (number | null)[] = r.indicators?.quote?.[0]?.close ?? [];
   q.spark = closes.filter((c): c is number => typeof c === "number");
   return q;
@@ -82,5 +84,5 @@ export async function fetchChart(symbol: string, range: string) {
   const closes: (number | null)[] = r.indicators?.quote?.[0]?.close ?? [];
   return ts
     .map((t, i) => ({ t: t * 1000, c: closes[i] }))
-    .filter((p): p is { t: number; c: number } => typeof p.c === "number");
+    .filter((p): p is { t: number; c: number } => typeof p.c === "number" && Number.isFinite(p.c));
 }

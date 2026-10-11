@@ -1,6 +1,6 @@
 @import "tailwindcss" source(none);
-@source "../src";
 @import "tw-animate-css";
+@source "../src";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -54,6 +54,8 @@
   --font-display: "Manrope", system-ui, sans-serif;
   --font-mono: "DM Mono", ui-monospace, monospace;
   --color-chart-1: var(--chart-1);
+  --color-chart-surface: var(--chart-surface);
+  --color-chart-ink: var(--chart-ink);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
@@ -94,6 +96,8 @@
   --input: oklch(0.91 0.015 255);
   --ring: oklch(0.56 0.2 258);
   --chart-1: oklch(0.56 0.2 258);
+  --chart-surface: oklch(1 0 0);
+  --chart-ink: oklch(0.22 0.07 262);
   --chart-2: oklch(0.55 0.13 158);
   --chart-3: oklch(0.7 0.13 245);
   --chart-4: oklch(0.75 0.14 75);
@@ -126,7 +130,7 @@
 
 @layer base {
   body { font-family: var(--font-sans); }
-  h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.03em; font-weight: 800; }
+  h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: 0; font-weight: 800; }
 }
 @utility bg-brand { background-image: var(--gradient-brand); }
 @utility bg-glow { background-image: var(--gradient-glow); }
