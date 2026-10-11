@@ -30,17 +30,25 @@ function Funds() {
   const [method, setMethod] = useState<(typeof methods)[number]["id"]>("ach");
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const cash = profile.data?.cash ?? 0;
+  const value = Number(amount);
+  const valid = Number.isFinite(value) && value >= 1 && value <= 10_000_000 && Math.abs(value * 100 - Math.round(value * 100)) < 0.000001 && (type === "deposit" || value <= cash);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (busy || !valid) return;
+    setMessage("");
     setBusy(true);
     try {
       await move({ data: { type, method, amount: Number(amount) } });
       toast.success(`${type === "deposit" ? "Deposited" : "Withdrew"} ${fmt(Number(amount))}`);
+      setMessage(`${type === "deposit" ? "Deposit" : "Withdrawal"} of ${fmt(value)} completed in your practice account.`);
       setAmount("");
-      qc.invalidateQueries();
+      await Promise.all([qc.invalidateQueries({ queryKey: ["profile"] }), qc.invalidateQueries({ queryKey: ["transactions"] })]);
     } catch (err) {
       toast.error((err as Error).message);
+      setMessage((err as Error).message);
     } finally {
       setBusy(false);
     }
@@ -53,30 +61,33 @@ function Funds() {
         <h1 className="text-2xl font-semibold">Deposit & withdraw</h1>
         <p className="text-sm text-muted-foreground">Available cash: <span className="num text-foreground">{fmt(profile.data?.cash ?? 0)}</span></p>
       </div>
-      <form onSubmit={submit} className="glass space-y-5 rounded-2xl p-6">
-        <div className="grid w-64 grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+      <form onSubmit={submit} className="glass space-y-5 rounded-lg p-6">
+        <div className="grid w-full max-w-64 grid-cols-2 gap-1 rounded-lg bg-muted p-1">
           {(["deposit", "withdrawal"] as const).map((t) => (
-            <button type="button" key={t} onClick={() => setType(t)} className={`rounded-md py-1.5 text-sm capitalize ${type === t ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>{t}</button>
+            <Button type="button" key={t} disabled={busy} aria-pressed={type === t} variant={type === t ? "default" : "ghost"} onClick={() => { setType(t); setMessage(""); }} className="capitalize">{t === "withdrawal" ? "Withdraw" : "Deposit"}</Button>
           ))}
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {methods.map((m) => (
-            <button type="button" key={m.id} onClick={() => setMethod(m.id)} className={`rounded-xl border p-4 text-left transition ${method === m.id ? "border-primary bg-primary/10" : "border-border hover:bg-accent/40"}`}>
+            <Button type="button" variant="outline" key={m.id} disabled={busy} aria-pressed={method === m.id} onClick={() => setMethod(m.id)} className={`h-auto flex-col items-start whitespace-normal rounded-lg border p-4 text-left transition ${method === m.id ? "border-primary bg-primary/10" : "border-border hover:bg-accent/40"}`}>
               <m.icon className="h-5 w-5 text-primary" />
               <p className="mt-2 text-sm font-semibold">{m.label}</p>
-              <p className="text-xs text-muted-foreground">{m.note}</p>
-            </button>
+              <span className="text-xs text-muted-foreground">Practice transfer</span>
+            </Button>
           ))}
         </div>
-        <div className="flex max-w-md gap-3">
-          <Input type="number" min="1" step="0.01" required placeholder="Amount (USD)" className="num" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          <Button type="submit" variant="hero" disabled={busy}>{busy ? "Processing…" : type === "deposit" ? "Deposit" : "Withdraw"}</Button>
+        <div className="flex max-w-md flex-wrap gap-3">
+          <Input aria-label="Amount (USD)" type="number" min="1" max={type === "withdrawal" ? cash : 10_000_000} step="0.01" required placeholder="Amount (USD)" className="num min-w-0 flex-1" disabled={busy} value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <Button type="submit" variant="hero" disabled={busy || !valid || profile.isLoading || profile.isError}>{busy ? "Processing…" : type === "deposit" ? "Deposit" : "Withdraw"}</Button>
         </div>
+        {type === "withdrawal" && value > cash && <p className="text-sm text-destructive">Amount exceeds your available cash.</p>}
+        {message && <p role="status" className="text-sm">{message}</p>}
+        {profile.isError && <p role="alert" className="text-sm text-destructive">Unable to load your balance. Refresh before transferring.</p>}
         <p className="text-xs text-muted-foreground">Practice funds settle instantly. No real bank account is charged.</p>
       </form>
       <div className="glass rounded-2xl p-6">
         <h2 className="mb-4 font-semibold">Recent transfers</h2>
-        {cashTx.length === 0 ? <p className="text-sm text-muted-foreground">No transfers yet.</p> : (
+        {tx.isLoading ? <p className="text-sm text-muted-foreground">Loading transfers…</p> : tx.isError ? <p role="alert" className="text-sm text-destructive">Unable to load transfer history.</p> : cashTx.length === 0 ? <p className="text-sm text-muted-foreground">No transfers yet.</p> : (
           <ul className="divide-y divide-border">
             {cashTx.map((t) => (
               <li key={t.id} className="flex justify-between py-3 text-sm">
