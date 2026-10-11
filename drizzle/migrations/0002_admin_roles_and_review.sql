@@ -1,0 +1,25 @@
+CREATE TYPE public.app_role AS ENUM ('admin', 'user');
+CREATE TABLE public.user_roles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE, role public.app_role NOT NULL, UNIQUE(user_id, role));
+GRANT SELECT ON public.user_roles TO authenticated;
+GRANT ALL ON public.user_roles TO service_role;
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY own_roles ON public.user_roles FOR SELECT TO authenticated USING (user_id = auth.uid());
+CREATE FUNCTION public.has_role(_user_id uuid, _role public.app_role) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$ SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = _role) $$;
+REVOKE ALL ON FUNCTION public.has_role(uuid, public.app_role) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO authenticated, service_role;
+CREATE POLICY admin_profiles_read ON public.profiles FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY admin_transactions_read ON public.transactions FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY admin_loans_read ON public.loans FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE TABLE public.admin_audit (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), admin_id uuid NOT NULL, subject_id uuid NOT NULL, action text NOT NULL, note text NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
+GRANT SELECT ON public.admin_audit TO authenticated;
+GRANT ALL ON public.admin_audit TO service_role;
+ALTER TABLE public.admin_audit ENABLE ROW LEVEL SECURITY;
+CREATE POLICY admin_audit_read ON public.admin_audit FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE FUNCTION public.admin_review_identity(_subject uuid, _status text, _note text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$ BEGIN
+IF NOT public.has_role(auth.uid(), 'admin') THEN RAISE EXCEPTION 'Administrator access required'; END IF;
+IF _status NOT IN ('verified','rejected') OR length(trim(_note)) < 3 THEN RAISE EXCEPTION 'A review decision and note are required'; END IF;
+UPDATE public.profiles SET kyc_status = _status WHERE id = _subject AND kyc_status = 'submitted';
+IF NOT FOUND THEN RAISE EXCEPTION 'Submission is no longer pending'; END IF;
+INSERT INTO public.admin_audit(admin_id,subject_id,action,note) VALUES(auth.uid(),_subject,'identity_' || _status,trim(_note)); END $$;
+REVOKE ALL ON FUNCTION public.admin_review_identity(uuid,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.admin_review_identity(uuid,text,text) TO authenticated;

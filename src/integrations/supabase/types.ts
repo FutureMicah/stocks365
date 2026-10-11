@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit: {
+        Row: {
+          action: string
+          admin_id: string
+          created_at: string
+          id: string
+          note: string
+          subject_id: string
+        }
+        Insert: {
+          action: string
+          admin_id: string
+          created_at?: string
+          id?: string
+          note: string
+          subject_id: string
+        }
+        Update: {
+          action?: string
+          admin_id?: string
+          created_at?: string
+          id?: string
+          note?: string
+          subject_id?: string
+        }
+        Relationships: []
+      }
       holdings: {
         Row: {
           avg_cost: number
@@ -161,6 +188,24 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       watchlist: {
         Row: {
           created_at: string
@@ -184,6 +229,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_review_identity: {
+        Args: { _note: string; _status: string; _subject: string }
+        Returns: undefined
+      }
       cash_move: {
         Args: { _amount: number; _method: string; _type: string; _uid: string }
         Returns: undefined
@@ -209,6 +258,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       open_loan: {
         Args: {
           _kind: string
@@ -225,7 +281,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -352,6 +408,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
