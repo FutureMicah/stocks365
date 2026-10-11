@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PriceChart } from "@/components/PriceChart";
 import { placeTrade } from "@/lib/account.functions";
+import { getAdminAccess } from "@/lib/admin.functions";
 import { fmt, pct, holdingsQ, profileQ, watchQ, useQuotes } from "@/lib/data";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -21,10 +22,11 @@ function Dashboard() {
   const profile = useQuery(profileQ);
   const holdings = useQuery(holdingsQ);
   const watch = useQuery(watchQ);
-  const symbols = useMemo(() => [...(holdings.data ?? []).map((h) => h.symbol), ...(watch.data ?? [])], [holdings.data, watch.data]);
+  const [selected, setSelected] = useState("AAPL");
+  const admin = useQuery({ queryKey: ["admin-access"], queryFn: () => getAdminAccess() });
+  const symbols = useMemo(() => [selected, ...(holdings.data ?? []).map((h) => h.symbol), ...(watch.data ?? [])], [selected, holdings.data, watch.data]);
   const quotes = useQuotes(symbols);
   const qmap = useMemo(() => Object.fromEntries((quotes.data ?? []).map((q) => [q.symbol, q])), [quotes.data]);
-  const [selected, setSelected] = useState("AAPL");
   const [addSym, setAddSym] = useState("");
 
   const cash = profile.data?.cash ?? 0;
@@ -42,7 +44,8 @@ function Dashboard() {
     const s = addSym.trim().toUpperCase();
     if (!s) return;
     const { data: u } = await supabase.auth.getUser();
-    const { error } = await supabase.from("watchlist").insert({ user_id: u.user!.id, symbol: s });
+    if (!u.user) return void toast.error("Please sign in again");
+    const { error } = await supabase.from("watchlist").insert({ user_id: u.user.id, symbol: s });
     if (error) toast.error(error.code === "23505" ? "Already on your watchlist" : error.message);
     setAddSym("");
     qc.invalidateQueries({ queryKey: ["watchlist"] });
@@ -57,7 +60,8 @@ function Dashboard() {
     <div className="mx-auto max-w-7xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Welcome back{profile.data?.full_name ? `, ${profile.data.full_name.split(" ")[0]}` : ""}</h1>
-        <p className="text-sm text-muted-foreground">Prices refresh every 15 seconds.</p>
+        {admin.data && <Button variant="outline" size="sm" className="mt-3" asChild><Link to="/admin">Administration</Link></Button>}
+        <p className="text-sm text-muted-foreground">Yahoo Finance quotes · prices may be delayed</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Total value" value={fmt(cash + invested)} />
@@ -178,7 +182,7 @@ function TradeTicket({ symbol, onSymbol, price, cash, owned }: { symbol: string;
         ))}
       </div>
       <label className="text-xs text-muted-foreground">Symbol
-        <Input className="mt-1 uppercase" value={sym} onChange={(e) => setSym(e.target.value.toUpperCase())} onBlur={() => sym && onSymbol(sym.trim())} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onSymbol(sym.trim()); } }} />
+        <Input className="mt-1 uppercase" value={symbol} onChange={(e) => { const value = e.target.value.toUpperCase(); setSym(value); onSymbol(value); }} />
       </label>
       <label className="text-xs text-muted-foreground">Shares
         <Input className="mt-1 num" type="number" min="0.0001" step="any" value={qty} onChange={(e) => setQty(e.target.value)} />
@@ -186,9 +190,10 @@ function TradeTicket({ symbol, onSymbol, price, cash, owned }: { symbol: string;
       <div className="space-y-1 text-sm">
         <Row k="Market price" v={price ? fmt(price) : "—"} />
         <Row k="Estimated total" v={fmt(est)} />
+        <Row k="Commission (0.5%)" v={fmt(est * 0.005)} />
         <Row k={side === "buy" ? "Buying power" : "Shares owned"} v={side === "buy" ? fmt(cash) : String(owned)} />
       </div>
-      <Button type="submit" variant={side === "buy" ? "success" : "destructive"} disabled={busy || n <= 0 || sym !== symbol}>
+      <Button type="submit" variant={side === "buy" ? "success" : "destructive"} disabled={busy || n <= 0 || !price || !/^[A-Z0-9.-]{1,10}$/.test(symbol) || (side === "buy" ? est * 1.005 > cash : n > owned)}>
         {busy ? "Submitting…" : `${side === "buy" ? "Buy" : "Sell"} ${symbol}`}
       </Button>
       <p className="text-[11px] text-muted-foreground">Market orders fill instantly at the live price. Practice money only.</p>
