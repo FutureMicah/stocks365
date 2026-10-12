@@ -42,7 +42,7 @@ export const moveCash = createServerFn({ method: "POST" })
       .object({
         type: z.enum(["deposit", "withdrawal"]),
         amount: z.number().min(1).max(10_000_000).refine((v) => Math.abs(v * 100 - Math.round(v * 100)) < 0.000001, "Use no more than two decimal places"),
-        method: z.enum(["ach", "wire", "crypto", "check"]),
+        method: z.enum(["ach", "crypto"]),
       })
       .parse(d),
   )
