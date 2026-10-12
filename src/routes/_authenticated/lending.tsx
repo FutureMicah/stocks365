@@ -25,7 +25,7 @@ function Lending() {
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Lending & credit</h1>
-        <p className="text-sm text-muted-foreground">Estimate payments and draw practice funds straight into your cash balance.</p>
+        <p className="text-sm text-muted-foreground">Estimate payments and draw funds straight into your cash balance.</p>
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <Calculator kind="heloc" />
