@@ -196,7 +196,7 @@ function TradeTicket({ symbol, onSymbol, price, cash, owned }: { symbol: string;
       <Button type="submit" variant={side === "buy" ? "success" : "destructive"} disabled={busy || n <= 0 || !price || !/^[A-Z0-9.-]{1,10}$/.test(symbol) || (side === "buy" ? est * 1.005 > cash : n > owned)}>
         {busy ? "Submitting…" : `${side === "buy" ? "Buy" : "Sell"} ${symbol}`}
       </Button>
-      <p className="text-[11px] text-muted-foreground">Market orders fill instantly at the live price. Practice money only.</p>
+      <p className="text-[11px] text-muted-foreground">Market orders fill instantly at the live price.</p>
     </form>
   );
 }

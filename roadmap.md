@@ -1,8 +1,11 @@
 # Current work
-- [ ] Repair loading and validate public pages.
+- [x] Repair loading and validate public pages.
 - [x] Apply supplied logo and matching favicon.
-- [ ] Restore provider-backed blue stock charts on white.
-- [ ] Repair wallet validation, feedback, and transfer history.
-- [ ] Add protected administration overview with real account data.
+- [x] Restore provider-backed blue stock charts on white.
+- [x] Sign-up flow verified end-to-end (email confirmation sent).
+- [ ] Funding page: only ACH and crypto deposit methods; fix deposit/withdrawal validation and history.
+- [ ] Remove all "practice"/demo wording and demo figures site-wide.
+- [ ] Add copy-trading pages with 4 random American names + Lisa Anderson.
+- [ ] Build out admin dashboard controlling accounts, reviews, activity, audit.
 - [ ] Verify signed-in chart and wallet flows.
 - [ ] Assign initial administrator (waiting for user to identify account).
