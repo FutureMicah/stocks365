@@ -115,3 +115,35 @@ export const revokeAdmin = createServerFn({ method: "POST" })
     await supabaseAdmin.from("admin_audit").insert({ admin_id: context.userId, subject_id: data.userId, action: "admin_revoked", note: "Administrator access removed" });
     return { ok: true };
   });
+
+export const getAccountDetail = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ userId: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const role = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
+    if (role.error || !role.data) throw new Error("Administrator access required");
+    const id = data.userId;
+    const [profile, holdings, transactions, loans, cash, audit] = await Promise.all([
+      context.supabase.from("profiles").select("id,full_name,phone,cash,created_at,kyc_status,kyc_submitted_at,id_type,date_of_birth,address,ssn_last4").eq("id", id).single(),
+      context.supabase.from("holdings").select("symbol,qty,avg_cost").eq("user_id", id).order("symbol"),
+      context.supabase.from("transactions").select("id,type,symbol,qty,price,amount,fee,method,note,created_at").eq("user_id", id).order("created_at", { ascending: false }).limit(200),
+      context.supabase.from("loans").select("id,kind,principal,balance,monthly_payment,rate,term_months,status,created_at").eq("user_id", id).order("created_at", { ascending: false }),
+      context.supabase.from("cash_requests").select("id,type,method,amount,status,note,created_at").eq("user_id", id).order("created_at", { ascending: false }).limit(100),
+      context.supabase.from("admin_audit").select("id,action,note,created_at").eq("subject_id", id).order("created_at", { ascending: false }).limit(100),
+    ]);
+    if (profile.error || !profile.data) throw new Error("Account not found");
+    if (holdings.error || transactions.error || loans.error || cash.error || audit.error) throw new Error("Unable to load account records");
+    // Email and last sign-in live in the auth schema, which only the service role can read.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const authUser = await supabaseAdmin.auth.admin.getUserById(id);
+    return {
+      profile: profile.data,
+      email: authUser.data?.user?.email ?? null,
+      lastSignIn: authUser.data?.user?.last_sign_in_at ?? null,
+      holdings: holdings.data ?? [],
+      transactions: transactions.data ?? [],
+      loans: loans.data ?? [],
+      cash: cash.data ?? [],
+      audit: audit.data ?? [],
+    };
+  });
