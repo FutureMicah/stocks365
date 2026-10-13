@@ -41,6 +41,45 @@ export type Database = {
         }
         Relationships: []
       }
+      cash_requests: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          method: string
+          note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          method: string
+          note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          method?: string
+          note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       holdings: {
         Row: {
           avg_cost: number
@@ -229,6 +268,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_decide_cash: {
+        Args: { _approve: boolean; _id: string; _note: string }
+        Returns: undefined
+      }
+      admin_decide_loan: {
+        Args: { _approve: boolean; _id: string; _note: string }
+        Returns: undefined
+      }
       admin_review_identity: {
         Args: { _note: string; _status: string; _subject: string }
         Returns: undefined
@@ -277,6 +324,10 @@ export type Database = {
       }
       repay_loan: {
         Args: { _amount: number; _loan: string; _uid: string }
+        Returns: undefined
+      }
+      request_cash: {
+        Args: { _amount: number; _method: string; _type: string }
         Returns: undefined
       }
     }
