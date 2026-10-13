@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_authenticated/lending")({
 
 const products = {
   heloc: { name: "Home Equity Line (HELOC)", rate: 7.25, max: 500_000, terms: [60, 120, 180, 240, 360], perks: ["Interest may be tax-deductible", "Draw only what you need", "Variable rate tied to prime"] },
-  personal: { name: "Personal Loan", rate: 9.99, max: 100_000, terms: [12, 24, 36, 48, 60], perks: ["Fixed rate & payment", "No collateral required", "Funds in minutes"] },
+  personal: { name: "Personal Loan", rate: 9.99, max: 100_000, terms: [12, 24, 36, 48, 60], perks: ["Fixed rate & payment", "No collateral required", "Funds released once an administrator approves"] },
 } as const;
 
 function Lending() {
@@ -25,7 +25,7 @@ function Lending() {
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Lending & credit</h1>
-        <p className="text-sm text-muted-foreground">Estimate payments and draw funds straight into your cash balance.</p>
+        <p className="text-sm text-muted-foreground">Estimate payments and apply for a loan. Funds are added to your cash balance only after an administrator approves your application.</p>
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <Calculator kind="heloc" />
@@ -49,7 +49,7 @@ function Calculator({ kind }: { kind: keyof typeof products }) {
     setBusy(true);
     try {
       await open({ data: { kind, principal: amount, term } });
-      toast.success(`${fmt(amount, 0)} added to your cash balance`);
+      toast.success("Application submitted. Funds will be added to your cash balance once an administrator approves it.");
       qc.invalidateQueries();
     } catch (err) {
       toast.error((err as Error).message);
@@ -81,7 +81,7 @@ function Calculator({ kind }: { kind: keyof typeof products }) {
         <div><p className="text-muted-foreground">Monthly payment</p><p className="num text-xl">{fmt(pmt)}</p></div>
         <div><p className="text-muted-foreground">Total interest</p><p className="num text-xl">{fmt(pmt * term - amount)}</p></div>
       </div>
-      <Button variant="hero" className="w-full" onClick={draw} disabled={busy}>{busy ? "Processing…" : `Draw ${fmt(amount, 0)}`}</Button>
+      <Button variant="hero" className="w-full" onClick={draw} disabled={busy}>{busy ? "Submitting…" : `Apply for ${fmt(amount, 0)}`}</Button>
     </div>
   );
 }
@@ -107,10 +107,12 @@ function ActiveLoans({ loans }: { loans: { id: string; kind: string; principal: 
           {loans.map((l) => (
             <li key={l.id} className="flex flex-wrap items-center gap-4 py-4 text-sm">
               <div className="min-w-40 flex-1">
-                <p className="font-semibold uppercase">{l.kind} <span className={`ml-2 rounded px-1.5 py-0.5 text-[10px] ${l.status === "active" ? "bg-primary/15 text-primary" : "bg-success/15 text-success"}`}>{l.status}</span></p>
+                <p className="font-semibold uppercase">{l.kind} <span className={`ml-2 rounded px-1.5 py-0.5 text-[10px] ${l.status === "active" ? "bg-primary/15 text-primary" : l.status === "paid" ? "bg-success/15 text-success" : l.status === "rejected" ? "bg-destructive/15 text-destructive" : "bg-muted text-muted-foreground"}`}>{l.status === "pending" ? "pending approval" : l.status}</span></p>
                 <p className="text-xs text-muted-foreground">{fmt(l.principal, 0)} at {l.rate}% · {fmt(l.monthly_payment)}/mo</p>
               </div>
-              <div className="num">Balance {fmt(l.balance)}</div>
+              {l.status === "pending" || l.status === "rejected"
+                ? <div className="text-muted-foreground">{l.status === "pending" ? "Awaiting administrator approval" : "Application not approved"}</div>
+                : <div className="num">Balance {fmt(l.balance)}</div>}
               {l.status === "active" && (
                 <div className="flex gap-2">
                   <Input className="num w-28" type="number" placeholder="Amount" value={amt[l.id] ?? ""} onChange={(e) => setAmt({ ...amt, [l.id]: e.target.value })} />
