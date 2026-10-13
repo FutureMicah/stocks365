@@ -72,11 +72,13 @@ function Nav() {
   }
   const actions = !ready ? null : session ? (
     <>
+      <Button variant="ghost" asChild><Link to="/copy">Copy trading</Link></Button>
       <Button variant="ghost" onClick={logout}>Log out</Button>
       <Button variant="hero" asChild><Link to="/dashboard">My portfolio</Link></Button>
     </>
   ) : (
     <>
+      <Button variant="ghost" asChild><Link to="/copy">Copy trading</Link></Button>
       <Button variant="ghost" asChild><Link to="/auth">Login</Link></Button>
       <Button variant="hero" asChild><Link to="/auth" search={{ mode: "signup" }}>Trade Now</Link></Button>
     </>

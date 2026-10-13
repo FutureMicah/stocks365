@@ -36,7 +36,7 @@ export const getIdentityDocument = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const signed = await supabaseAdmin.storage.from("kyc-docs").createSignedUrl(profile.id_document_path, 60);
     if (signed.error || !signed.data) throw new Error("Unable to open identity document");
-    const browserOrigin = process.env.VITE_SUPABASE_URL;
+    const browserOrigin = process.env['VITE_SUPABASE_URL'] ?? process.env['SUPABASE_URL'];
     if (!browserOrigin) throw new Error("Document access is not configured");
     const path = new URL(signed.data.signedUrl);
     return { url: `${browserOrigin.replace(/\/$/, "")}${path.pathname}${path.search}` };
