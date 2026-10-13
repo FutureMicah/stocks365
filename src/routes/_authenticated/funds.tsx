@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Building2, Bitcoin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
 import { moveCash } from "@/lib/account.functions";
 import { fmt, profileQ, txQ } from "@/lib/data";
 
@@ -24,6 +25,7 @@ function Funds() {
   const move = useServerFn(moveCash);
   const profile = useQuery(profileQ);
   const tx = useQuery(txQ);
+  const reqs = useQuery({ queryKey: ["cash-requests"], queryFn: async () => { const { data, error } = await supabase.from("cash_requests").select("id,type,method,amount,status,note,created_at").order("created_at", { ascending: false }).limit(20); if (error) throw error; return data; } });
   const [type, setType] = useState<"deposit" | "withdrawal">("deposit");
   const [method, setMethod] = useState<(typeof methods)[number]["id"]>("ach");
   const [amount, setAmount] = useState("");
@@ -43,7 +45,7 @@ function Funds() {
       toast.success("Request sent for administrator approval");
       setMessage(`${type === "deposit" ? "Deposit" : "Withdrawal"} request of ${fmt(value)} submitted. Your balance updates once an administrator approves it.`);
       setAmount("");
-      await Promise.all([qc.invalidateQueries({ queryKey: ["profile"] }), qc.invalidateQueries({ queryKey: ["transactions"] })]);
+      await Promise.all([qc.invalidateQueries({ queryKey: ["profile"] }), qc.invalidateQueries({ queryKey: ["transactions"] }), qc.invalidateQueries({ queryKey: ["cash-requests"] })]);
     } catch (err) {
       toast.error((err as Error).message);
       setMessage((err as Error).message);
@@ -84,7 +86,13 @@ function Funds() {
         <p className="text-xs text-muted-foreground">Every deposit and withdrawal is reviewed and approved by an administrator before your balance changes.</p>
       </form>
       <div className="glass rounded-2xl p-6">
-        <h2 className="mb-4 font-semibold">Recent transfers</h2>
+        <h2 className="mb-4 font-semibold">Your requests</h2>
+        {reqs.isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : !reqs.data?.length ? <p className="text-sm text-muted-foreground">No requests yet.</p> : (
+          <ul className="divide-y divide-border">{reqs.data.map((r) => <li key={r.id} className="flex justify-between gap-3 py-3 text-sm"><div><p className="capitalize">{r.type} · <span className="uppercase text-muted-foreground">{r.method}</span></p><p className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString()}{r.note ? ` · ${r.note}` : ""}</p></div><div className="text-right"><p className="num">{fmt(Number(r.amount))}</p><p className={`text-xs capitalize ${r.status === "approved" ? "text-success" : r.status === "rejected" ? "text-destructive" : "text-muted-foreground"}`}>{r.status}</p></div></li>)}</ul>
+        )}
+      </div>
+      <div className="glass rounded-2xl p-6">
+        <h2 className="mb-4 font-semibold">Completed transfers</h2>
         {tx.isLoading ? <p className="text-sm text-muted-foreground">Loading transfers…</p> : tx.isError ? <p role="alert" className="text-sm text-destructive">Unable to load transfer history.</p> : cashTx.length === 0 ? <p className="text-sm text-muted-foreground">No transfers yet.</p> : (
           <ul className="divide-y divide-border">
             {cashTx.map((t) => (
