@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, Wallet, Landmark, FileText, Settings, LogOut, BadgeCheck } from "lucide-react";
+import { LayoutDashboard, Wallet, Landmark, FileText, Settings, LogOut, BadgeCheck, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
 import { KycForm } from "@/components/KycForm";
@@ -21,6 +21,7 @@ const nav = [
   { to: "/funds", label: "Wallet", icon: Wallet },
   { to: "/lending", label: "Lending", icon: Landmark },
   { to: "/statements", label: "Activity", icon: FileText },
+  { to: "/copy", label: "Copy", icon: Users },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
@@ -75,7 +76,7 @@ function Shell() {
             <Outlet />
           )}
         </main>
-        <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-border bg-card md:hidden">
+        <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-6 border-t border-border bg-card md:hidden">
           {nav.map((n) => (
             <Link key={n.to} to={n.to} className="flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold text-muted-foreground" activeProps={{ className: "!text-primary" }}>
               <n.icon className="h-5 w-5" />{n.label}

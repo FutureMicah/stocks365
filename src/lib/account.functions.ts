@@ -21,6 +21,8 @@ export const placeTrade = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
+    const { data: prof } = await context.supabase.from("profiles").select("kyc_status").eq("id", context.userId).single();
+    if (prof?.kyc_status !== "verified") throw new Error("Trading unlocks after an administrator approves your identity");
     const q = await fetchQuote(data.symbol);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.rpc("execute_trade_v2", {
@@ -47,13 +49,7 @@ export const moveCash = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("cash_move", {
-      _uid: context.userId,
-      _type: data.type,
-      _amount: data.amount,
-      _method: data.method,
-    });
+    const { error } = await context.supabase.rpc("request_cash", { _type: data.type, _method: data.method, _amount: data.amount });
     clean(error);
     return { ok: true };
   });

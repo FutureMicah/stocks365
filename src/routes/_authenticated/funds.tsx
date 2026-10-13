@@ -40,8 +40,8 @@ function Funds() {
     setBusy(true);
     try {
       await move({ data: { type, method, amount: Number(amount) } });
-      toast.success(`${type === "deposit" ? "Deposited" : "Withdrew"} ${fmt(Number(amount))}`);
-      setMessage(`${type === "deposit" ? "Deposit" : "Withdrawal"} of ${fmt(value)} completed.`);
+      toast.success("Request sent for administrator approval");
+      setMessage(`${type === "deposit" ? "Deposit" : "Withdrawal"} request of ${fmt(value)} submitted. Your balance updates once an administrator approves it.`);
       setAmount("");
       await Promise.all([qc.invalidateQueries({ queryKey: ["profile"] }), qc.invalidateQueries({ queryKey: ["transactions"] })]);
     } catch (err) {
@@ -81,7 +81,7 @@ function Funds() {
         {type === "withdrawal" && value > cash && <p className="text-sm text-destructive">Amount exceeds your available cash.</p>}
         {message && <p role="status" className="text-sm">{message}</p>}
         {profile.isError && <p role="alert" className="text-sm text-destructive">Unable to load your balance. Refresh before transferring.</p>}
-        <p className="text-xs text-muted-foreground">Deposits and withdrawals are recorded instantly in your account history.</p>
+        <p className="text-xs text-muted-foreground">Every deposit and withdrawal is reviewed and approved by an administrator before your balance changes.</p>
       </form>
       <div className="glass rounded-2xl p-6">
         <h2 className="mb-4 font-semibold">Recent transfers</h2>
