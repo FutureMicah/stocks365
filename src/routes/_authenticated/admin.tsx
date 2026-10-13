@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getAdminAccess, getAdminOverview, getAccountDetail, getIdentityDocument, reviewIdentity, decideCash, decideLoan, inviteAdmin, revokeAdmin } from "@/lib/admin.functions";
 import { fmt } from "@/lib/data";
+import { getFundingInstructions, setFundingInstructions, achSchema, cryptoSchema } from "@/lib/funding.functions";
+import { DemoFundsNotice } from "@/components/DemoFundsNotice";
 
 const accessQ = queryOptions({ queryKey: ["admin-access"], queryFn: () => getAdminAccess() });
 const overviewQ = queryOptions({ queryKey: ["admin-overview"], queryFn: () => getAdminOverview() });
@@ -38,10 +40,11 @@ function Overview() {
   return <div className="mx-auto max-w-7xl space-y-6">
     <header className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase text-primary">stocks365</p><h1 className="text-3xl">Administration</h1></div><Button variant="outline" onClick={() => qc.invalidateQueries({ queryKey: ["admin-overview"] })}><RefreshCw />Refresh</Button></header>
     <dl className="grid gap-5 border-y border-border py-5 sm:grid-cols-2 lg:grid-cols-4">{[["Accounts", String(data.profiles.length)], ["Pending approvals", String(pending.length + pendingCash.length + pendingLoans.length)], ["Total account cash", fmt(data.profiles.reduce((s, p) => s + Number(p.cash), 0))], ["Active loan balances", fmt(data.loans.filter((l) => l.status === "active").reduce((s, l) => s + Number(l.balance), 0))]].map(([label, value]) => <div key={label}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="num mt-2 break-words text-xl">{value}</dd></div>)}</dl>
-    <div className="flex flex-wrap gap-2" role="tablist" aria-label="Administration views">{[["accounts", "Accounts"], ["funding", `Deposits & withdrawals (${pendingCash.length})`], ["loans", `Loans (${pendingLoans.length})`], ["reviews", `Identity reviews (${pending.length})`], ...(data.isSuper ? [["admins", "Administrators"]] : []), ["activity", "Transfers & trades"], ["audit", "Review history"]].map(([id, label]) => <Button key={id} role="tab" aria-selected={tab === id} variant={tab === id ? "default" : "ghost"} onClick={() => setTab(id ?? "accounts")}>{label}</Button>)}</div>
+    <div className="flex flex-wrap gap-2" role="tablist" aria-label="Administration views">{[["accounts", "Accounts"], ["funding", `Deposits & withdrawals (${pendingCash.length})`], ["instructions", "Deposit instructions"], ["loans", `Loans (${pendingLoans.length})`], ["reviews", `Identity reviews (${pending.length})`], ...(data.isSuper ? [["admins", "Administrators"]] : []), ["activity", "Transfers & trades"], ["audit", "Review history"]].map(([id, label]) => <Button key={id} role="tab" aria-selected={tab === id} variant={tab === id ? "default" : "ghost"} onClick={() => setTab(id ?? "accounts")}>{label}</Button>)}</div>
     {tab === "accounts" && selected && <AccountDetail id={selected} onBack={() => setSelected(null)} />}
     {tab === "accounts" && !selected && <><Input aria-label="Search accounts" placeholder="Search name or account ID" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-md" /><div className="overflow-x-auto"><table className="w-full min-w-[600px] text-left text-sm"><thead><tr className="border-b border-border text-muted-foreground"><th className="py-3">Account</th><th>Identity status</th><th>Created</th><th className="text-right">Cash balance</th><th><span className="sr-only">Details</span></th></tr></thead><tbody>{profiles.map((p) => <tr key={p.id} className="border-b border-border"><td className="py-3"><p className="font-semibold">{p.full_name || "Unnamed account"}</p><p className="text-xs text-muted-foreground">{p.id}</p></td><td className="capitalize">{p.kyc_status}</td><td>{new Date(p.created_at).toLocaleDateString()}</td><td className="num text-right">{fmt(Number(p.cash))}</td><td className="text-right"><Button variant="outline" size="sm" onClick={() => setSelected(p.id)}>View</Button></td></tr>)}</tbody></table>{profiles.length === 0 && <p className="py-8 text-muted-foreground">No matching accounts.</p>}</div></>}
     {tab === "funding" && <div className="space-y-3">{data.cash.map((c) => <Decision key={c.id} kind="cash" id={c.id} pending={c.status === "pending"} title={`${c.type === "deposit" ? "Deposit" : "Withdrawal"} · ${c.method.toUpperCase()} · ${fmt(Number(c.amount))}`} sub={`${name(c.user_id)} · ${new Date(c.created_at).toLocaleString()} · ${c.status}${c.note ? ` · ${c.note}` : ""}`} />)}{!data.cash.length && <p className="py-8 text-muted-foreground">No deposit or withdrawal requests.</p>}</div>}
+    {tab === "instructions" && <InstructionsEditor />}
     {tab === "loans" && <div className="space-y-3">{data.loans.map((l) => <Decision key={l.id} kind="loan" id={l.id} pending={l.status === "pending"} title={`${l.kind.toUpperCase()} · ${fmt(Number(l.principal))} · ${l.term_months} months @ ${l.rate}%`} sub={`${name(l.user_id)} · ${new Date(l.created_at).toLocaleDateString()} · ${l.status} · balance ${fmt(Number(l.balance))}`} />)}{!data.loans.length && <p className="py-8 text-muted-foreground">No loan applications.</p>}</div>}
     {tab === "admins" && data.isSuper && <Admins roles={data.roles} name={name} />}
     {tab === "reviews" && <div className="space-y-4">{pending.map((p) => <Review key={p.id} profile={p} />)}{!pending.length && <p className="py-8 text-muted-foreground">No pending identity submissions.</p>}</div>}
@@ -153,4 +156,29 @@ function AccountDetail({ id, onBack }: { id: string; onBack: () => void }) {
       {!audit.length && <p className="py-4 text-muted-foreground">No admin actions recorded.</p>}
     </Section>
   </div>;
+}
+
+const achFields = [["bankName", "Bank name"], ["accountName", "Account holder name"], ["routingNumber", "Routing number"], ["accountNumber", "Account number"], ["instructions", "Reference / instructions"]] as const;
+const cryptoFields = [["asset", "Asset (e.g. USDT)"], ["network", "Network (e.g. TRC20)"], ["address", "Wallet address"], ["instructions", "Reference / instructions"]] as const;
+function InstructionsEditor() {
+  const load = useServerFn(getFundingInstructions);
+  const q = useQuery({ queryKey: ["funding-instructions"], queryFn: () => load() });
+  if (q.isLoading) return <div className="h-48 animate-pulse rounded-lg bg-muted" />;
+  if (q.isError || !q.data) return <div className="space-y-3"><p className="text-destructive">Unable to load deposit instructions.</p><Button variant="outline" onClick={() => q.refetch()}>Try again</Button></div>;
+  return <div className="space-y-5"><DemoFundsNotice /><p className="text-sm text-muted-foreground">These details appear on the customer Deposit screen for the selected method. Every change is recorded in review history.</p><div className="grid gap-5 lg:grid-cols-2"><InstructionsForm method="ach" title="ACH transfer" fields={achFields} initial={q.data.ach} updatedAt={q.data.updatedAt.ach} /><InstructionsForm method="crypto" title="Crypto deposit" fields={cryptoFields} initial={q.data.crypto} updatedAt={q.data.updatedAt.crypto} /></div></div>;
+}
+function InstructionsForm({ method, title, fields, initial, updatedAt }: { method: "ach" | "crypto"; title: string; fields: readonly (readonly [string, string])[]; initial: Record<string, string>; updatedAt: string | null }) {
+  const save = useServerFn(setFundingInstructions);
+  const qc = useQueryClient();
+  const [values, setValues] = useState<Record<string, string>>(initial);
+  const [busy, setBusy] = useState(false);
+  const parsed = method === "ach" ? achSchema.safeParse(values) : cryptoSchema.safeParse(values);
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!parsed.success) return;
+    const payload = method === "ach" ? { method, details: achSchema.parse(values) } : { method, details: cryptoSchema.parse(values) };
+    setBusy(true);
+    try { await save({ data: payload }); toast.success(`${title} instructions saved`); await Promise.all([qc.invalidateQueries({ queryKey: ["funding-instructions"] }), qc.invalidateQueries({ queryKey: ["admin-overview"] })]); } catch (err) { toast.error((err as Error).message); } finally { setBusy(false); }
+  }
+  return <form onSubmit={submit} className="space-y-3 rounded-lg border border-border bg-card p-5"><h2 className="font-semibold">{title}</h2>{fields.map(([key, label]) => <label key={key} className="block space-y-1 text-sm"><span className="text-xs text-muted-foreground">{label}</span><Input value={values[key] ?? ""} onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))} maxLength={key === "instructions" ? 500 : 128} disabled={busy} /></label>)}{!parsed.success && <p className="text-sm text-destructive">{parsed.error.issues[0]?.message}</p>}<div className="flex items-center justify-between gap-3"><p className="text-xs text-muted-foreground">{updatedAt ? `Last updated ${new Date(updatedAt).toLocaleString()}` : "Not set yet"}</p><Button type="submit" disabled={busy || !parsed.success}>{busy ? "Saving…" : "Save"}</Button></div></form>;
 }

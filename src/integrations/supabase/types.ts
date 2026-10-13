@@ -41,6 +41,27 @@ export type Database = {
         }
         Relationships: []
       }
+      funding_instructions: {
+        Row: {
+          details: Json
+          method: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          details?: Json
+          method: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          details?: Json
+          method?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       cash_requests: {
         Row: {
           amount: number
@@ -268,6 +289,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_set_funding_instructions: {
+        Args: { _details: Json; _method: string }
+        Returns: undefined
+      }
       admin_decide_cash: {
         Args: { _approve: boolean; _id: string; _note: string }
         Returns: undefined
