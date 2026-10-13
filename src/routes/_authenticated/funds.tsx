@@ -3,12 +3,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Building2, Bitcoin } from "lucide-react";
+import { Building2, Bitcoin, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { moveCash } from "@/lib/account.functions";
 import { fmt, profileQ, txQ } from "@/lib/data";
+import { getFundingInstructions, type FundingInstructions } from "@/lib/funding.functions";
+import { DemoFundsNotice } from "@/components/DemoFundsNotice";
 
 export const Route = createFileRoute("/_authenticated/funds")({
   head: () => ({ meta: [{ title: "Funds — stocks365" }, { name: "description", content: "Deposit and withdraw funds by ACH transfer or crypto." }] }),
@@ -25,6 +27,8 @@ function Funds() {
   const move = useServerFn(moveCash);
   const profile = useQuery(profileQ);
   const tx = useQuery(txQ);
+  const loadInstructions = useServerFn(getFundingInstructions);
+  const instructions = useQuery({ queryKey: ["funding-instructions"], queryFn: () => loadInstructions() });
   const reqs = useQuery({ queryKey: ["cash-requests"], queryFn: async () => { const { data, error } = await supabase.from("cash_requests").select("id,type,method,amount,status,note,created_at").order("created_at", { ascending: false }).limit(20); if (error) throw error; return data; } });
   const [type, setType] = useState<"deposit" | "withdrawal">("deposit");
   const [method, setMethod] = useState<(typeof methods)[number]["id"]>("ach");
@@ -76,6 +80,7 @@ function Funds() {
             </Button>
           ))}
         </div>
+        {type === "deposit" && <DepositDetails method={method} q={instructions} />}
         <div className="flex max-w-md flex-wrap gap-3">
           <Input aria-label="Amount (USD)" type="number" min="1" max={type === "withdrawal" ? cash : 10_000_000} step="0.01" required placeholder="Amount (USD)" className="num min-w-0 flex-1" disabled={busy} value={amount} onChange={(e) => setAmount(e.target.value)} />
           <Button type="submit" variant="hero" disabled={busy || !valid || profile.isLoading || profile.isError}>{busy ? "Processing…" : type === "deposit" ? "Deposit" : "Withdraw"}</Button>
@@ -104,6 +109,32 @@ function Funds() {
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+function DepositDetails({ method, q }: { method: "ach" | "crypto"; q: { data: FundingInstructions | undefined; isLoading: boolean; isError: boolean } }) {
+  if (q.isLoading) return <div className="h-32 animate-pulse rounded-lg bg-muted" />;
+  if (q.isError || !q.data) return <p role="alert" className="text-sm text-destructive">Unable to load deposit instructions.</p>;
+  const rows: [string, string][] = method === "ach"
+    ? [["Bank name", q.data.ach.bankName], ["Account holder", q.data.ach.accountName], ["Routing number", q.data.ach.routingNumber], ["Account number", q.data.ach.accountNumber]]
+    : [["Asset", q.data.crypto.asset], ["Network", q.data.crypto.network], ["Wallet address", q.data.crypto.address]];
+  const note = method === "ach" ? q.data.ach.instructions : q.data.crypto.instructions;
+  const set = rows.filter(([, v]) => v);
+  return (
+    <div className="space-y-3">
+      <DemoFundsNotice />
+      {set.length === 0 ? <p className="text-sm text-muted-foreground">Deposit details for this method have not been set up yet.</p> : (
+        <dl className="divide-y divide-border rounded-lg border border-border">
+          {set.map(([label, value]) => (
+            <div key={label} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+              <dt className="text-muted-foreground">{label}</dt>
+              <dd className="flex min-w-0 items-center gap-2"><span className="num break-all text-right">{value}</span><Button type="button" variant="ghost" size="icon" aria-label={`Copy ${label}`} onClick={() => navigator.clipboard.writeText(value).then(() => toast.success(`${label} copied`))}><Copy className="h-4 w-4" /></Button></dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {note && <p className="whitespace-pre-line text-sm">{note}</p>}
     </div>
   );
 }

@@ -4,6 +4,7 @@
 - [x] Restore provider-backed blue stock charts on white.
 - [x] Sign-up flow verified end-to-end (email confirmation sent).
 - [ ] Funding page: only ACH and crypto deposit methods; fix deposit/withdrawal validation and history.
+- [x] Admin-managed ACH and crypto deposit instructions shown on Deposit (behind a fixed demo notice).
 - [ ] Remove all "practice"/demo wording and demo figures site-wide.
 - [ ] Add copy-trading pages with 4 random American names + Lisa Anderson.
 - [ ] Build out admin dashboard controlling accounts, reviews, activity, audit.
