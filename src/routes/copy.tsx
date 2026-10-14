@@ -74,7 +74,7 @@ function CopyTrading() {
 
       <section className="border-t border-border bg-muted/40">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-14 sm:grid-cols-3">
-          <div className="flex gap-3"><TrendingUp className="h-6 w-6 shrink-0 text-primary" /><div><h3 className="font-semibold">Live prices, real fills</h3><p className="mt-1 text-sm text-muted-foreground">Copied orders execute at the same live market price you see on your chart.</p></div></div>
+          <div className="flex gap-3"><TrendingUp className="h-6 w-6 shrink-0 text-primary" /><div><h3 className="font-semibold">Live prices, paper fills</h3><p className="mt-1 text-sm text-muted-foreground">Copied baskets fill at the latest market price and mark to market while you hold them. Nothing is sent to a real broker.</p></div></div>
           <div className="flex gap-3"><Users className="h-6 w-6 shrink-0 text-primary" /><div><h3 className="font-semibold">You stay in control</h3><p className="mt-1 text-sm text-muted-foreground">Set your own allocation per trader and stop copying whenever you like.</p></div></div>
           <div className="flex gap-3"><ShieldCheck className="h-6 w-6 shrink-0 text-primary" /><div><h3 className="font-semibold">Verified track records</h3><p className="mt-1 text-sm text-muted-foreground">Every featured trader completes identity verification before being listed.</p></div></div>
         </div>

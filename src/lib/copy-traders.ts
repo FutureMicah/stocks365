@@ -64,10 +64,17 @@ export const COPY_TRADERS: Trader[] = [
   },
 ];
 
+export type CopyPosition = {
+  symbol: string;
+  qty: number;
+  entry: number;
+};
+
 export type CopyAllocation = {
   traderId: string;
   amount: number;
   startedAt: string;
+  positions: CopyPosition[];
 };
 
 function key(userId: string) {
@@ -80,7 +87,13 @@ export function loadCopies(userId: string): CopyAllocation[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as CopyAllocation[];
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((row) => COPY_TRADERS.some((t) => t.id === row.traderId) && row.amount > 0);
+    return parsed.filter(
+      (row) =>
+        COPY_TRADERS.some((t) => t.id === row.traderId) &&
+        row.amount > 0 &&
+        Array.isArray(row.positions) &&
+        row.positions.length > 0,
+    );
   } catch {
     return [];
   }
@@ -88,4 +101,18 @@ export function loadCopies(userId: string): CopyAllocation[] {
 
 export function saveCopies(userId: string, rows: CopyAllocation[]) {
   localStorage.setItem(key(userId), JSON.stringify(rows));
+}
+
+export function openBasket(amount: number, quotes: { symbol: string; price: number }[], symbols: string[]): CopyPosition[] | null {
+  const priced = symbols.map((symbol) => {
+    const quote = quotes.find((q) => q.symbol === symbol);
+    return quote && quote.price > 0 ? { symbol, price: quote.price } : null;
+  });
+  if (priced.some((row) => !row)) return null;
+  const slice = amount / priced.length;
+  return priced.map((row) => ({
+    symbol: row!.symbol,
+    entry: row!.price,
+    qty: Math.round((slice / row!.price) * 10000) / 10000,
+  }));
 }
