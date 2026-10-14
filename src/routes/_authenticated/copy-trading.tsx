@@ -7,13 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { placeTrade } from "@/lib/account.functions";
 import { fmt, pct, profileQ, useQuotes } from "@/lib/data";
-import { COPY_TRADERS, loadCopies, openBasket, saveCopies, type CopyAllocation } from "@/lib/copy-traders";
+import { COPY_TRADERS, openBasket, type CopyAllocation } from "@/lib/copy-traders";
+import { deleteCopyAllocation, listCopyAllocations, upsertCopyAllocation } from "@/lib/copy.functions";
 
 export const Route = createFileRoute("/_authenticated/copy-trading")({
   head: () => ({
     meta: [
       { title: "Copy trading — stocks365" },
-      { name: "description", content: "Allocate cash to copy traders; buys and sells update your wallet and holdings." },
+      {
+        name: "description",
+        content: "Allocate cash to copy traders; buys and sells update your wallet and holdings.",
+      },
     ],
   }),
   component: CopyDesk,
@@ -26,14 +30,26 @@ function CopyDesk() {
   const { user } = authRoute.useRouteContext();
   const qc = useQueryClient();
   const trade = useServerFn(placeTrade);
+  const listCopies = useServerFn(listCopyAllocations);
+  const saveCopy = useServerFn(upsertCopyAllocation);
+  const removeCopy = useServerFn(deleteCopyAllocation);
   const profile = useQuery(profileQ);
-  const [copies, setCopies] = useState<CopyAllocation[]>(() => loadCopies(user.id));
+
+  const copiesQ = useQuery({
+    queryKey: ["copy-allocations", user.id],
+    queryFn: () => listCopies(),
+  });
+  const copies = copiesQ.data ?? [];
+
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
 
   const symbols = useMemo(() => COPY_TRADERS.flatMap((t) => t.symbols), []);
   const quotes = useQuotes(symbols);
-  const qmap = useMemo(() => Object.fromEntries((quotes.data ?? []).map((q) => [q.symbol, q])), [quotes.data]);
+  const qmap = useMemo(
+    () => Object.fromEntries((quotes.data ?? []).map((q) => [q.symbol, q])),
+    [quotes.data],
+  );
 
   const cash = profile.data?.cash ?? 0;
 
@@ -50,13 +66,9 @@ function CopyDesk() {
   const openPL = books.reduce((s, b) => s + b.pl, 0);
   const allocated = copies.reduce((sum, row) => sum + row.amount, 0);
 
-  function commit(next: CopyAllocation[]) {
-    setCopies(next);
-    saveCopies(user.id, next);
-  }
-
-  async function refreshWallet() {
+  async function refreshAll() {
     await Promise.all([
+      qc.invalidateQueries({ queryKey: ["copy-allocations"] }),
       qc.invalidateQueries({ queryKey: ["profile"] }),
       qc.invalidateQueries({ queryKey: ["holdings"] }),
       qc.invalidateQueries({ queryKey: ["transactions"] }),
@@ -97,17 +109,22 @@ function CopyDesk() {
         filled.push({ symbol: result.symbol, qty: leg.qty, entry: result.price });
       }
       const spent = Math.round(filled.reduce((s, p) => s + p.entry * p.qty, 0) * 100) / 100;
-      commit([
-        ...copies,
-        {
-          traderId,
-          amount: spent,
-          startedAt: new Date().toISOString(),
-          positions: filled,
+      const allocation: CopyAllocation = {
+        traderId,
+        amount: spent,
+        startedAt: new Date().toISOString(),
+        positions: filled,
+      };
+      await saveCopy({
+        data: {
+          traderId: allocation.traderId,
+          amount: allocation.amount,
+          startedAt: allocation.startedAt,
+          positions: allocation.positions,
         },
-      ]);
+      });
       setAmounts((prev) => ({ ...prev, [traderId]: "" }));
-      await refreshWallet();
+      await refreshAll();
       toast.success(`Copy opened for ${trader.name}. ${fmt(spent)} invested into your holdings.`);
     } catch (err) {
       for (const leg of filled) {
@@ -117,7 +134,7 @@ function CopyDesk() {
           /* leave partial holdings if unwind fails */
         }
       }
-      await refreshWallet();
+      await refreshAll();
       toast.error((err as Error).message || "Could not open copy.");
     } finally {
       setBusy(null);
@@ -127,6 +144,7 @@ function CopyDesk() {
   async function stop(traderId: string) {
     const book = books.find((b) => b.copy.traderId === traderId);
     if (!book || busy) return;
+    if (!window.confirm("Sell all positions in this copy and remove it from your book?")) return;
     setBusy(traderId);
     let proceeds = 0;
     try {
@@ -136,11 +154,11 @@ function CopyDesk() {
       }
       proceeds = Math.round(proceeds * 100) / 100;
       const pl = proceeds - book.copy.amount;
-      commit(copies.filter((row) => row.traderId !== traderId));
-      await refreshWallet();
+      await removeCopy({ data: { traderId } });
+      await refreshAll();
       toast.success(`Closed at ${fmt(proceeds)} (${pl >= 0 ? "+" : ""}${fmt(pl)}). Cash and holdings updated.`);
     } catch (err) {
-      await refreshWallet();
+      await refreshAll();
       toast.error((err as Error).message || "Could not close copy.");
     } finally {
       setBusy(null);
@@ -152,10 +170,18 @@ function CopyDesk() {
       <div>
         <h1 className="text-2xl font-semibold">Copy trading</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Allocations buy into your wallet at live US prices and mark to market about every 15 seconds. Closing sells those shares back to cash.
+          Allocations are saved to your account (not only this browser). Opening a copy buys the basket into your
+          wallet; closing sells those shares back to cash.
           {quotes.isFetching ? " Updating prices…" : ""}
         </p>
       </div>
+
+      {copiesQ.isError && (
+        <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          {(copiesQ.error as Error).message}. If this mentions a missing table, run the{" "}
+          <code className="text-foreground">copy_allocations</code> SQL in Lovable.
+        </p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Available cash" value={fmt(cash)} />
@@ -172,24 +198,37 @@ function CopyDesk() {
             <article key={trader.id} className="glass flex flex-col rounded-2xl p-6">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
-                  {trader.name.split(" ").map((part) => part[0]).join("")}
+                  {trader.name
+                    .split(" ")
+                    .map((part) => part[0])
+                    .join("")}
                 </div>
                 <div className="min-w-0 flex-1">
                   <h2 className="font-semibold">{trader.name}</h2>
-                  <p className="text-xs text-muted-foreground">{trader.strategy} · {trader.risk}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {trader.strategy} · {trader.risk}
+                  </p>
                 </div>
                 {book && (
                   <p className={`num text-sm font-semibold ${book.pl >= 0 ? "text-success" : "text-destructive"}`}>
-                    {book.pl >= 0 ? "+" : ""}{fmt(book.pl)}
+                    {book.pl >= 0 ? "+" : ""}
+                    {fmt(book.pl)}
                   </p>
                 )}
               </div>
               <p className="mt-4 text-sm text-muted-foreground">{trader.bio}</p>
+              <p className="mt-2 text-xs text-muted-foreground">Basket: {trader.symbols.join(", ")}</p>
               {book ? (
                 <>
                   <table className="mt-4 w-full text-sm">
                     <thead className="text-left text-xs text-muted-foreground">
-                      <tr><th className="pb-1">Symbol</th><th className="pb-1 text-right">Shares</th><th className="pb-1 text-right">Entry</th><th className="pb-1 text-right">Live</th><th className="pb-1 text-right">Value</th></tr>
+                      <tr>
+                        <th className="pb-1">Symbol</th>
+                        <th className="pb-1 text-right">Shares</th>
+                        <th className="pb-1 text-right">Entry</th>
+                        <th className="pb-1 text-right">Live</th>
+                        <th className="pb-1 text-right">Value</th>
+                      </tr>
                     </thead>
                     <tbody className="num">
                       {book.positions.map((p) => (
@@ -197,7 +236,9 @@ function CopyDesk() {
                           <td className="py-1.5 font-sans font-semibold">{p.symbol}</td>
                           <td className="text-right">{p.qty}</td>
                           <td className="text-right">{fmt(p.entry)}</td>
-                          <td className={`text-right ${p.live >= p.entry ? "text-success" : "text-destructive"}`}>{fmt(p.live)}</td>
+                          <td className={`text-right ${p.live >= p.entry ? "text-success" : "text-destructive"}`}>
+                            {fmt(p.live)}
+                          </td>
                           <td className="text-right">{fmt(p.value)}</td>
                         </tr>
                       ))}
@@ -207,10 +248,11 @@ function CopyDesk() {
                     <p className="text-sm">
                       Now <span className="num font-semibold">{fmt(book.value)}</span>
                       <span className="block text-xs text-muted-foreground">
-                        Started {fmt(book.copy.amount)} · {pct(book.copy.amount ? (book.pl / book.copy.amount) * 100 : 0)}
+                        Started {fmt(book.copy.amount)} ·{" "}
+                        {pct(book.copy.amount ? (book.pl / book.copy.amount) * 100 : 0)}
                       </span>
                     </p>
-                    <Button type="button" variant="outline" disabled={!!busy} onClick={() => stop(trader.id)}>
+                    <Button type="button" variant="outline" disabled={!!busy} onClick={() => void stop(trader.id)}>
                       {working ? "Closing…" : "Close copy"}
                     </Button>
                   </div>
@@ -231,7 +273,7 @@ function CopyDesk() {
                     aria-label={`Amount to copy ${trader.name}`}
                     disabled={!!busy}
                   />
-                  <Button type="submit" variant="hero" disabled={!!busy || quotes.isLoading}>
+                  <Button type="submit" variant="hero" disabled={!!busy || quotes.isLoading || copiesQ.isLoading}>
                     {working ? "Buying…" : "Copy"}
                   </Button>
                 </form>
@@ -248,7 +290,9 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: num
   return (
     <div className="glass rounded-2xl p-5">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={`num mt-1 text-xl font-semibold ${tone == null ? "" : tone >= 0 ? "text-success" : "text-destructive"}`}>{value}</p>
+      <p className={`num mt-1 text-xl font-semibold ${tone == null ? "" : tone >= 0 ? "text-success" : "text-destructive"}`}>
+        {value}
+      </p>
     </div>
   );
 }
