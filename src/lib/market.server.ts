@@ -16,7 +16,11 @@ export type Quote = {
   spark?: number[];
 };
 
-const UA = { "User-Agent": "Mozilla/5.0", "Accept": "application/json" };
+const UA = {
+  "User-Agent": "Mozilla/5.0 (compatible; stocks365/1.0; +https://stocks365.lovable.app)",
+  Accept: "application/json,text/plain,*/*",
+  "Accept-Language": "en-US,en;q=0.9",
+};
 const intervals: Record<string, string> = {
   "1d": "5m",
   "5d": "30m",
