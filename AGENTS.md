@@ -16,3 +16,4 @@
 - Wallet transfers remain practice-account operations until a licensed funding provider is connected; never imply bank settlement.
 - Copy trading must execute real in-app buys and sells so cash and holdings stay consistent with the copy book.
 - The first administrator is claimed once via bootstrap_first_admin when no admin roles exist; afterwards only a super administrator can invite others.
+- Support chat is admin-initiated; only administrators browse full chat history across users.

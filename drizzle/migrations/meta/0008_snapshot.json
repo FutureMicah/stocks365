@@ -1,0 +1,14 @@
+{
+  "id": "0008_admin_chat",
+  "prevIds": ["0007_bootstrap_first_admin"],
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {},
+  "enums": {},
+  "schemas": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  }
+}
