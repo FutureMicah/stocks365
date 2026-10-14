@@ -12,92 +12,58 @@ export type Trader = {
 };
 
 export const COPY_TRADERS: Trader[] = [
-  {
-    id: "lisa-anderson",
-    name: "Lisa Anderson",
-    strategy: "Large-cap growth",
-    return12m: 38.4,
-    winRate: 71,
-    risk: "Moderate",
-    bio: "Twelve years trading NYSE large caps. Focuses on earnings momentum and disciplined position sizing.",
-    symbols: ["AAPL", "MSFT", "GOOGL", "AMZN"],
-  },
-  {
-    id: "james-carter",
-    name: "James Carter",
-    strategy: "Dividend income",
-    return12m: 19.2,
-    winRate: 78,
-    risk: "Conservative",
-    bio: "Builds steady income portfolios from dividend aristocrats and utility leaders.",
-    symbols: ["JNJ", "PG", "KO", "XOM"],
-  },
-  {
-    id: "michael-bennett",
-    name: "Michael Bennett",
-    strategy: "Tech momentum",
-    return12m: 52.7,
-    winRate: 64,
-    risk: "Aggressive",
-    bio: "Rides semiconductor and software trends with tight stop-loss discipline.",
-    symbols: ["NVDA", "AVGO", "AMD", "META"],
-  },
-  {
-    id: "david-sullivan",
-    name: "David Sullivan",
-    strategy: "Index swing",
-    return12m: 24.1,
-    winRate: 69,
-    risk: "Moderate",
-    bio: "Trades S&P 500 and Nasdaq-100 ETFs around macro events and seasonality.",
-    symbols: ["SPY", "QQQ", "IWM"],
-  },
-  {
-    id: "robert-hayes",
-    name: "Robert Hayes",
-    strategy: "Value & financials",
-    return12m: 16.8,
-    winRate: 74,
-    risk: "Conservative",
-    bio: "Former bank analyst hunting undervalued financials and industrial names.",
-    symbols: ["JPM", "BAC", "CAT", "UNH"],
-  },
+  { id: "lisa-anderson", name: "Lisa Anderson", strategy: "Large-cap growth", return12m: 38.4, winRate: 71, risk: "Moderate", bio: "Twelve years trading NYSE large caps. Focuses on earnings momentum and disciplined position sizing.", symbols: ["AAPL", "MSFT", "GOOGL", "AMZN"] },
+  { id: "james-carter", name: "James Carter", strategy: "Dividend income", return12m: 19.2, winRate: 78, risk: "Conservative", bio: "Builds steady income portfolios from dividend aristocrats and utility leaders.", symbols: ["JNJ", "PG", "KO", "XOM"] },
+  { id: "michael-bennett", name: "Michael Bennett", strategy: "Tech momentum", return12m: 52.7, winRate: 64, risk: "Aggressive", bio: "Rides semiconductor and software trends with tight stop-loss discipline.", symbols: ["NVDA", "AVGO", "AMD", "META"] },
+  { id: "david-sullivan", name: "David Sullivan", strategy: "Index swing", return12m: 24.1, winRate: 69, risk: "Moderate", bio: "Trades S&P 500 and Nasdaq-100 ETFs around macro events and seasonality.", symbols: ["SPY", "QQQ", "IWM"] },
+  { id: "robert-hayes", name: "Robert Hayes", strategy: "Value & financials", return12m: 16.8, winRate: 74, risk: "Conservative", bio: "Former bank analyst hunting undervalued financials and industrial names.", symbols: ["JPM", "BAC", "CAT", "UNH"] },
 ];
 
-export type CopyPosition = {
-  symbol: string;
-  qty: number;
-  entry: number;
-};
+export type CopyPosition = { symbol: string; qty: number; entry: number };
+export type CopyAllocation = { traderId: string; amount: number; startedAt: string; positions: CopyPosition[] };
 
-export type CopyAllocation = {
-  traderId: string;
-  amount: number;
-  startedAt: string;
-  positions: CopyPosition[];
-};
-
-/** Build equal-weight basket from trader id + amount + price map. */
+/** Equal-weight legs for an amount given live prices. */
 export function openBasket(
-  traderId: string,
   amount: number,
-  prices: Record<string, number>,
-): CopyAllocation | null {
-  const trader = COPY_TRADERS.find((t) => t.id === traderId);
-  if (!trader || !(amount > 0)) return null;
-  const per = amount / trader.symbols.length;
-  const positions: CopyPosition[] = [];
-  for (const symbol of trader.symbols) {
-    const entry = prices[symbol];
-    if (!(entry > 0)) return null;
-    const qty = Math.floor((per / entry) * 10000) / 10000;
+  legs: { symbol: string; price: number }[],
+  _symbols?: string[],
+): { symbol: string; qty: number }[] | null {
+  if (!(amount > 0) || !legs.length) return null;
+  const per = amount / legs.length;
+  const out: { symbol: string; qty: number }[] = [];
+  for (const leg of legs) {
+    if (!(leg.price > 0)) return null;
+    const qty = Math.floor((per / leg.price) * 10000) / 10000;
     if (qty <= 0) return null;
-    positions.push({ symbol, qty, entry });
+    out.push({ symbol: leg.symbol, qty });
   }
-  return {
-    traderId,
-    amount,
-    startedAt: new Date().toISOString(),
-    positions,
-  };
+  return out;
+}
+
+function key(userId: string) {
+  return `stocks365.copy.${userId}`;
+}
+
+export function loadCopies(userId: string): CopyAllocation[] {
+  try {
+    if (typeof localStorage === "undefined") return [];
+    const raw = localStorage.getItem(key(userId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as CopyAllocation[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (row) =>
+        COPY_TRADERS.some((t) => t.id === row.traderId) &&
+        row.amount > 0 &&
+        Array.isArray(row.positions) &&
+        row.positions.length > 0,
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function saveCopies(userId: string, rows: CopyAllocation[]) {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(key(userId), JSON.stringify(rows));
 }
