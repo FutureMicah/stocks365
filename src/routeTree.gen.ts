@@ -21,6 +21,7 @@ import { Route as AuthenticatedFundsRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedLendingRouteImport } from './routes/_authenticated/lending'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedStatementsRouteImport } from './routes/_authenticated/statements'
+import { Route as AuthenticatedCopyTradingRouteImport } from './routes/_authenticated/copy-trading'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -81,6 +82,11 @@ const AuthenticatedStatementsRoute = AuthenticatedStatementsRouteImport.update({
   path: '/statements',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCopyTradingRoute = AuthenticatedCopyTradingRouteImport.update({
+  id: '/copy-trading',
+  path: '/copy-trading',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/lending': typeof AuthenticatedLendingRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/statements': typeof AuthenticatedStatementsRoute
+  '/copy-trading': typeof AuthenticatedCopyTradingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/lending': typeof AuthenticatedLendingRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/statements': typeof AuthenticatedStatementsRoute
+  '/copy-trading': typeof AuthenticatedCopyTradingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/_authenticated/lending': typeof AuthenticatedLendingRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/statements': typeof AuthenticatedStatementsRoute
+  '/_authenticated/copy-trading': typeof AuthenticatedCopyTradingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/lending'
     | '/settings'
     | '/statements'
+    | '/copy-trading'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/lending'
     | '/settings'
     | '/statements'
+    | '/copy-trading'
   id:
     | '__root__'
     | '/'
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/_authenticated/lending'
     | '/_authenticated/settings'
     | '/_authenticated/statements'
+    | '/_authenticated/copy-trading'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -261,6 +273,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStatementsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/copy-trading': {
+      id: '/_authenticated/copy-trading'
+      path: '/copy-trading'
+      fullPath: '/copy-trading'
+      preLoaderRoute: typeof AuthenticatedCopyTradingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -271,6 +290,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLendingRoute: typeof AuthenticatedLendingRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStatementsRoute: typeof AuthenticatedStatementsRoute
+  AuthenticatedCopyTradingRoute: typeof AuthenticatedCopyTradingRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -280,6 +300,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLendingRoute: AuthenticatedLendingRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStatementsRoute: AuthenticatedStatementsRoute,
+  AuthenticatedCopyTradingRoute: AuthenticatedCopyTradingRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

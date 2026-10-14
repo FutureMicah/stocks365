@@ -22,7 +22,7 @@ const nav = [
   { to: "/funds", label: "Wallet", icon: Wallet },
   { to: "/lending", label: "Lending", icon: Landmark },
   { to: "/statements", label: "Activity", icon: FileText },
-  { to: "/copy", label: "Copy", icon: Users },
+  { to: "/copy-trading", label: "Copy", icon: Users },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 

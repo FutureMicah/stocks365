@@ -66,7 +66,7 @@ function CopyTrading() {
               <div><dt className="text-xs text-muted-foreground">Risk level</dt><dd className="font-semibold">{t.risk}</dd></div>
             </dl>
             <Button asChild variant="hero" className="mt-5 w-full">
-              <Link to="/auth" search={{ mode: "signup" }}>Copy {t.name.split(" ")[0]} <ArrowRight className="h-4 w-4" /></Link>
+              <Link to="/copy-trading">Copy {t.name.split(" ")[0]} <ArrowRight className="h-4 w-4" /></Link>
             </Button>
           </article>
         ))}
