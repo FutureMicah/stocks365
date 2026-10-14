@@ -1,0 +1,14 @@
+{
+  "id": "0012_super_admin_implies_admin",
+  "prevIds": ["0011_admin_bootstrap_fix"],
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {},
+  "enums": {},
+  "schemas": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  }
+}

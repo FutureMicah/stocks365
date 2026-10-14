@@ -2,89 +2,18 @@
   "version": "7",
   "dialect": "postgresql",
   "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1791415935927,
-      "tag": "0000_brokerage_core",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1791539518671,
-      "tag": "0001_kyc_and_fees",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1791700507011,
-      "tag": "0002_admin_roles_and_review",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1791852917322,
-      "tag": "0003_super_admin_role",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1791852951724,
-      "tag": "0004_admin_controlled_funding",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1791930000000,
-      "tag": "0005_funding_instructions",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1791966000000,
-      "tag": "0006_remove_practice_bonus",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1791969000000,
-      "tag": "0007_bootstrap_first_admin",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1791972000000,
-      "tag": "0008_admin_chat",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1791975000000,
-      "tag": "0009_withdrawal_destination",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1791978000000,
-      "tag": "0010_user_start_chat",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1791981000000,
-      "tag": "0011_admin_bootstrap_fix",
-      "breakpoints": true
-    }
+    {"idx": 0, "version": "7", "when": 1791415935927, "tag": "0000_brokerage_core", "breakpoints": true},
+    {"idx": 1, "version": "7", "when": 1791539518671, "tag": "0001_kyc_and_fees", "breakpoints": true},
+    {"idx": 2, "version": "7", "when": 1791700507011, "tag": "0002_admin_roles_and_review", "breakpoints": true},
+    {"idx": 3, "version": "7", "when": 1791852917322, "tag": "0003_super_admin_role", "breakpoints": true},
+    {"idx": 4, "version": "7", "when": 1791852951724, "tag": "0004_admin_controlled_funding", "breakpoints": true},
+    {"idx": 5, "version": "7", "when": 1791930000000, "tag": "0005_funding_instructions", "breakpoints": true},
+    {"idx": 6, "version": "7", "when": 1791966000000, "tag": "0006_remove_practice_bonus", "breakpoints": true},
+    {"idx": 7, "version": "7", "when": 1791969000000, "tag": "0007_bootstrap_first_admin", "breakpoints": true},
+    {"idx": 8, "version": "7", "when": 1791972000000, "tag": "0008_admin_chat", "breakpoints": true},
+    {"idx": 9, "version": "7", "when": 1791975000000, "tag": "0009_withdrawal_destination", "breakpoints": true},
+    {"idx": 10, "version": "7", "when": 1791978000000, "tag": "0010_user_start_chat", "breakpoints": true},
+    {"idx": 11, "version": "7", "when": 1791981000000, "tag": "0011_admin_bootstrap_fix", "breakpoints": true},
+    {"idx": 12, "version": "7", "when": 1791984000000, "tag": "0012_super_admin_implies_admin", "breakpoints": true}
   ]
 }
