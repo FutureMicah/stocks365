@@ -10,7 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { moveCash } from "@/lib/account.functions";
 import { fmt, profileQ, txQ } from "@/lib/data";
 import { getFundingInstructions, type FundingInstructions } from "@/lib/funding.functions";
-import { DemoFundsNotice } from "@/components/DemoFundsNotice";
 
 export const Route = createFileRoute("/_authenticated/funds")({
   head: () => ({ meta: [{ title: "Funds — stocks365" }, { name: "description", content: "Deposit and withdraw funds by ACH transfer or crypto." }] }),
@@ -123,7 +122,6 @@ function DepositDetails({ method, q }: { method: "ach" | "crypto"; q: { data: Fu
   const set = rows.filter(([, v]) => v);
   return (
     <div className="space-y-3">
-      <DemoFundsNotice />
       {set.length === 0 ? <p className="text-sm text-muted-foreground">Deposit details for this method have not been set up yet.</p> : (
         <dl className="divide-y divide-border rounded-lg border border-border">
           {set.map(([label, value]) => (
