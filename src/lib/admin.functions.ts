@@ -5,9 +5,30 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 export const getAdminAccess = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (error) throw new Error("Unable to check administrator access");
+    const [admin, superAdmin] = await Promise.all([
+      context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" }),
+      context.supabase.rpc("has_role", { _user_id: context.userId, _role: "super_admin" }),
+    ]);
+    if (admin.error || superAdmin.error) throw new Error("Unable to check administrator access");
+    return Boolean(admin.data || superAdmin.data);
+  });
+
+/** True only while no admin or super_admin rows exist — enables first-admin claim. */
+export const canBootstrapAdmin = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase.rpc("admin_bootstrap_available");
+    if (error) throw new Error("Unable to check administrator bootstrap status");
     return Boolean(data);
+  });
+
+/** Claim admin + super_admin for the current user when no administrators exist yet. */
+export const claimFirstAdmin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { error } = await context.supabase.rpc("bootstrap_first_admin");
+    if (error) throw new Error(error.message.replace(/^.*?EXCEPTION:?\s*/i, "") || "Unable to claim administrator access");
+    return { ok: true };
   });
 
 export const getAdminOverview = createServerFn({ method: "GET" })
@@ -28,21 +49,18 @@ export const getAdminOverview = createServerFn({ method: "GET" })
     return { profiles: profiles.data ?? [], transactions: transactions.data ?? [], loans: loans.data ?? [], audit: audit.data ?? [], cash: cash.data ?? [], roles: (roles.data ?? []) as { user_id: string; role: string }[], isSuper: Boolean(superRole.data) };
   });
 
-export const getIdentityDocument = createServerFn({ method: "GET" })
+export const getIdentityDocument = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ userId: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
     const role = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
     if (role.error || !role.data) throw new Error("Administrator access required");
     const { data: profile, error } = await context.supabase.from("profiles").select("id_document_path").eq("id", data.userId).single();
-    if (error || !profile?.id_document_path) throw new Error("No identity document is available");
+    if (error || !profile?.id_document_path) throw new Error("Identity document not found");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const signed = await supabaseAdmin.storage.from("kyc-docs").createSignedUrl(profile.id_document_path, 60);
-    if (signed.error || !signed.data) throw new Error("Unable to open identity document");
-    const browserOrigin = process.env['VITE_SUPABASE_URL'] ?? process.env['SUPABASE_URL'];
-    if (!browserOrigin) throw new Error("Document access is not configured");
-    const path = new URL(signed.data.signedUrl);
-    return { url: `${browserOrigin.replace(/\/$/, "")}${path.pathname}${path.search}` };
+    if (signed.error || !signed.data?.signedUrl) throw new Error("Unable to open identity document");
+    return { url: signed.data.signedUrl };
   });
 
 export const reviewIdentity = createServerFn({ method: "POST" })
@@ -53,11 +71,10 @@ export const reviewIdentity = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
-const decision = z.object({ id: z.string().uuid(), approve: z.boolean(), note: z.string().trim().max(500) });
 
 export const decideCash = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => decision.parse(d))
+  .inputValidator((d) => z.object({ id: z.string().uuid(), approve: z.boolean(), note: z.string().trim().max(500).default("") }).parse(d))
   .handler(async ({ context, data }) => {
     const { error } = await context.supabase.rpc("admin_decide_cash", { _id: data.id, _approve: data.approve, _note: data.note });
     if (error) throw new Error(error.message);
@@ -66,14 +83,14 @@ export const decideCash = createServerFn({ method: "POST" })
 
 export const decideLoan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => decision.parse(d))
+  .inputValidator((d) => z.object({ id: z.string().uuid(), approve: z.boolean(), note: z.string().trim().max(500).default("") }).parse(d))
   .handler(async ({ context, data }) => {
     const { error } = await context.supabase.rpc("admin_decide_loan", { _id: data.id, _approve: data.approve, _note: data.note });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
 
-async function requireSuper(context: { supabase: any; userId: string }) {
+async function requireSuper(context: { userId: string; supabase: { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string } | null }> } }) {
   const { data, error } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "super_admin" });
   if (error || !data) throw new Error("Super administrator access required");
 }
@@ -133,7 +150,6 @@ export const getAccountDetail = createServerFn({ method: "GET" })
     ]);
     if (profile.error || !profile.data) throw new Error("Account not found");
     if (holdings.error || transactions.error || loans.error || cash.error || audit.error) throw new Error("Unable to load account records");
-    // Email and last sign-in live in the auth schema, which only the service role can read.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const authUser = await supabaseAdmin.auth.admin.getUserById(id);
     return {
