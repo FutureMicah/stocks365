@@ -82,36 +82,51 @@ export const moveCash = createServerFn({ method: "POST" })
       }
     }
 
-    const payload: Record<string, unknown> = {
-      _type: data.type,
-      _method: data.method,
-      _amount: data.amount,
-    };
-    if (destination) payload._destination = destination;
-
-    let { error } = await context.supabase.rpc("request_cash", payload);
-    if (error && data.type === "deposit" && /destination|_destination|schema cache|function/i.test(error.message || "")) {
-      const retry = await context.supabase.rpc("request_cash", {
+    // Deposits never need destination — call the 3-arg overload first to avoid
+    // PostgREST/schema-cache mismatches when the 4-arg function is missing or stale.
+    if (data.type === "deposit") {
+      let { error } = await context.supabase.rpc("request_cash", {
         _type: data.type,
         _method: data.method,
         _amount: data.amount,
       });
-      error = retry.error;
+      if (error && /destination|_destination|Could not find the function|schema cache|function.*does not exist/i.test(error.message || "")) {
+        const retry = await context.supabase.rpc("request_cash", {
+          _type: data.type,
+          _method: data.method,
+          _amount: data.amount,
+          _destination: null,
+        });
+        error = retry.error;
+      }
+      if (error) {
+        const raw = error.message || "";
+        const cleaned = raw.replace(/^.*?EXCEPTION:?\s*/i, "");
+        if (/destination|column.*cash_requests|Could not find the function|schema cache/i.test(raw)) {
+          throw new Error(
+            "Deposit is not fully set up in the database yet. In Lovable Cloud → SQL, run the contents of drizzle/migrations/0014_request_cash_safe.sql, then try again.",
+          );
+        }
+        throw new Error(cleaned || "Unable to submit deposit request");
+      }
+      return { ok: true };
+    }
+
+    const payload: Record<string, unknown> = {
+      _type: data.type,
+      _method: data.method,
+      _amount: data.amount,
+      _destination: destination,
+    };
+    let { error } = await context.supabase.rpc("request_cash", payload);
+    if (error && /Could not find the function|schema cache|function.*does not exist/i.test(error.message || "")) {
+      throw new Error(
+        "Withdrawal destinations need migration 0009 or 0014. In Lovable Cloud → SQL, run drizzle/migrations/0014_request_cash_safe.sql, then try again.",
+      );
     }
     if (error) {
-      const raw = error.message || "";
-      const cleaned = raw.replace(/^.*?EXCEPTION:?\s*/i, "");
-      if (/destination|column.*cash_requests/i.test(raw)) {
-        throw new Error(
-          "Deposit setup is incomplete in the database. In Lovable SQL run migration 0014 (destination column + request_cash), then try again.",
-        );
-      }
-      if (/Could not find the function|schema cache/i.test(raw)) {
-        throw new Error(
-          "Cash request function is missing. Apply drizzle/migrations/0014_request_cash_safe.sql in Lovable SQL, then try again.",
-        );
-      }
-      throw new Error(cleaned || "Unable to submit cash request");
+      const cleaned = (error.message || "").replace(/^.*?EXCEPTION:?\s*/i, "");
+      throw new Error(cleaned || "Unable to submit withdrawal request");
     }
     return { ok: true };
   });

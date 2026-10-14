@@ -38,7 +38,7 @@ function BootstrapGate() {
   const qc = useQueryClient();
   const load = useServerFn(canBootstrapAdmin);
   const claim = useServerFn(claimFirstAdmin);
-  const available = useQuery({ queryKey: ["admin-bootstrap"], queryFn: () => load() });
+  const available = useQuery({ queryKey: ["admin-bootstrap"], queryFn: () => load(), retry: 1 });
   const [busy, setBusy] = useState(false);
   async function take() {
     if (
@@ -63,12 +63,33 @@ function BootstrapGate() {
       setBusy(false);
     }
   }
+  const grantSql = `INSERT INTO public.user_roles (user_id, role)
+SELECT id, r.role
+FROM auth.users
+CROSS JOIN (VALUES ('admin'::public.app_role), ('super_admin'::public.app_role)) AS r(role)
+WHERE lower(email) = lower('YOUR_EMAIL@example.com')
+ON CONFLICT (user_id, role) DO NOTHING;`;
   return (
     <div className="mx-auto max-w-xl space-y-4 py-12">
       <h1 className="text-2xl">Administrator access required</h1>
       <p className="text-muted-foreground">This account does not have permission to view administration records.</p>
       {available.isLoading ? (
         <p className="text-sm text-muted-foreground">Checking whether the first administrator can be named…</p>
+      ) : available.isError ? (
+        <div className="space-y-3 rounded-lg border border-destructive/40 bg-card p-5">
+          <p className="text-sm text-destructive" role="alert">
+            {(available.error as Error).message}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Open Supabase → SQL Editor and run{" "}
+            <code className="text-foreground">drizzle/migrations/0007_bootstrap_first_admin.sql</code>
+            {" "}then{" "}
+            <code className="text-foreground">0011_admin_bootstrap_fix.sql</code>.
+          </p>
+          <Button type="button" variant="outline" onClick={() => void available.refetch()}>
+            Retry
+          </Button>
+        </div>
       ) : available.data ? (
         <div className="space-y-3 rounded-lg border border-border bg-card p-5">
           <p className="text-sm">
@@ -80,9 +101,17 @@ function BootstrapGate() {
           </Button>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">
-          Ask an existing super administrator to invite this account from the Administrators tab.
-        </p>
+        <div className="space-y-3 rounded-lg border border-border bg-card p-5">
+          <p className="text-sm text-muted-foreground">
+            An administrator already exists for this project. Sign in with that account, or ask a super administrator to
+            invite you from the Administrators tab.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            If you are the project owner and are locked out, open Supabase → SQL Editor and run (replace the email with
+            yours):
+          </p>
+          <pre className="overflow-x-auto rounded-md bg-muted p-3 text-[11px] leading-relaxed text-foreground">{grantSql}</pre>
+        </div>
       )}
     </div>
   );
