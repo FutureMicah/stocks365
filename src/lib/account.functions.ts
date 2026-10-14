@@ -9,6 +9,21 @@ function clean(e: { message?: string } | null) {
   throw new Error(msg.replace(/^.*?EXCEPTION:?\s*/i, ""));
 }
 
+async function assertActive(
+  supabase: { from: (t: string) => any },
+  userId: string,
+) {
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("kyc_status,account_status")
+    .eq("id", userId)
+    .single();
+  const st = (prof as { account_status?: string } | null)?.account_status ?? "active";
+  if (st === "suspended") throw new Error("This account is suspended. Contact support.");
+  if (st === "banned") throw new Error("This account has been banned.");
+  return prof as { kyc_status?: string; account_status?: string } | null;
+}
+
 export const placeTrade = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
@@ -21,7 +36,7 @@ export const placeTrade = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { data: prof } = await context.supabase.from("profiles").select("kyc_status").eq("id", context.userId).single();
+    const prof = await assertActive(context.supabase, context.userId);
     if (prof?.kyc_status !== "verified") throw new Error("Trading unlocks after an administrator approves your identity");
     const q = await fetchQuote(data.symbol);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -71,6 +86,8 @@ export const moveCash = createServerFn({ method: "POST" })
     return base;
   })
   .handler(async ({ data, context }) => {
+    await assertActive(context.supabase, context.userId);
+
     let destination: string | null = null;
     if (data.type === "withdrawal" && data.destination) {
       if (data.method === "ach") {
@@ -82,8 +99,6 @@ export const moveCash = createServerFn({ method: "POST" })
       }
     }
 
-    // Deposits never need destination — call the 3-arg overload first to avoid
-    // PostgREST/schema-cache mismatches when the 4-arg function is missing or stale.
     if (data.type === "deposit") {
       let { error } = await context.supabase.rpc("request_cash", {
         _type: data.type,
@@ -145,6 +160,7 @@ export const openLoan = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
+    await assertActive(context.supabase, context.userId);
     if (data.kind === "personal" && data.principal > 100_000) throw new Error("Personal loans are capped at $100,000");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.rpc("open_loan", {
@@ -162,6 +178,7 @@ export const repayLoan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ loanId: z.string().uuid(), amount: z.number().positive() }).parse(d))
   .handler(async ({ data, context }) => {
+    await assertActive(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.rpc("repay_loan", {
       _uid: context.userId,
