@@ -7,7 +7,7 @@ export const Route = createFileRoute("/copy")({
   head: () => ({
     meta: [
       { title: "Copy Trading — stocks365" },
-      { name: "description", content: "Follow experienced US stock traders and mirror their strategies on stocks365." },
+      { name: "description", content: "Follow SMC, CRT, SLP and MNSR strategies on stocks365 copy trading." },
       { property: "og:title", content: "Copy Trading — stocks365" },
       { property: "og:description", content: "Follow experienced US stock traders and mirror their strategies." },
       { property: "og:type", content: "website" },
@@ -18,11 +18,51 @@ export const Route = createFileRoute("/copy")({
 });
 
 const traders = [
-  { name: "Lisa Anderson", strategy: "Large-cap growth", return12m: "+38.4%", winRate: "71%", copiers: 4218, risk: "Moderate", bio: "Twelve years trading NYSE large caps. Focuses on earnings momentum and disciplined position sizing." },
-  { name: "James Carter", strategy: "Dividend income", return12m: "+19.2%", winRate: "78%", copiers: 3105, risk: "Conservative", bio: "Builds steady income portfolios from dividend aristocrats and utility leaders." },
-  { name: "Michael Bennett", strategy: "Tech momentum", return12m: "+52.7%", winRate: "64%", copiers: 2874, risk: "Aggressive", bio: "Rides semiconductor and software trends with tight stop-loss discipline." },
-  { name: "David Sullivan", strategy: "Index swing", return12m: "+24.1%", winRate: "69%", copiers: 1990, risk: "Moderate", bio: "Trades S&P 500 and Nasdaq-100 ETFs around macro events and seasonality." },
-  { name: "Robert Hayes", strategy: "Value & financials", return12m: "+16.8%", winRate: "74%", copiers: 1542, risk: "Conservative", bio: "Former bank analyst hunting undervalued financials and industrial names." },
+  {
+    name: "Lisa Anderson",
+    strategy: "SMC · Smart Money Concepts",
+    return12m: "+41.2%",
+    winRate: "68%",
+    copiers: 4218,
+    risk: "Moderate",
+    bio: "Trades institutional order flow: liquidity sweeps, order blocks, and market structure shifts on large-cap tech.",
+  },
+  {
+    name: "Noah Brooks",
+    strategy: "CRT · Candle Range Theory",
+    return12m: "+33.6%",
+    winRate: "72%",
+    copiers: 2860,
+    risk: "Moderate",
+    bio: "Maps prior candle ranges for continuation and reversal on liquid index ETFs and session levels.",
+  },
+  {
+    name: "Michael Bennett",
+    strategy: "SLP · Session Liquidity Play",
+    return12m: "+48.9%",
+    winRate: "63%",
+    copiers: 2874,
+    risk: "Aggressive",
+    bio: "Hunts session open and London/NY liquidity pools in semiconductors and high-beta tech.",
+  },
+  {
+    name: "David Sullivan",
+    strategy: "MNSR · Momentum & Structure Reversal",
+    return12m: "+27.4%",
+    winRate: "70%",
+    copiers: 1990,
+    risk: "Moderate",
+    bio: "Combines trend momentum with structure-based reversals at key highs and lows on index ETFs.",
+  },
+  {
+    name: "Robert Hayes",
+    strategy: "SLP · Session Liquidity Play",
+    return12m: "+22.1%",
+    winRate: "74%",
+    copiers: 1542,
+    risk: "Conservative",
+    bio: "Applies session liquidity logic to financials and quality cyclicals after stop hunts into value zones.",
+  },
 ];
 
 function CopyTrading() {
@@ -43,7 +83,7 @@ function CopyTrading() {
           <p className="text-sm font-semibold uppercase tracking-wider text-primary">Copy trading</p>
           <h1 className="mt-3 text-4xl font-bold md:text-5xl">Trade alongside experienced investors</h1>
           <p className="mx-auto mt-4 max-w-2xl text-deep-foreground/70">
-            Allocate cash to a trader's basket. Buys and sells hit your wallet at live US market prices so your portfolio stays in sync.
+            Allocate cash to a trader's basket. Strategies include SMC, CRT, SLP and MNSR. Buys and sells hit your wallet at live US market prices.
           </p>
           <Button asChild variant="hero" size="lg" className="mt-8">
             <Link to="/auth" search={{ mode: "signup" }}>Get started <ArrowRight className="ml-1 h-4 w-4" /></Link>
