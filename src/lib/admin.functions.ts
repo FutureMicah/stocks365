@@ -9,7 +9,6 @@ export const getAdminAccess = createServerFn({ method: "GET" })
       context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" }),
       context.supabase.rpc("has_role", { _user_id: context.userId, _role: "super_admin" }),
     ]);
-    // Missing RPC / network: treat as not admin so the bootstrap gate can still render.
     if (admin.error || superAdmin.error) {
       console.error("has_role failed", admin.error || superAdmin.error);
       return false;
@@ -17,7 +16,6 @@ export const getAdminAccess = createServerFn({ method: "GET" })
     return Boolean(admin.data || superAdmin.data);
   });
 
-/** True only while no live admin or super_admin exists — enables first-admin claim. */
 export const canBootstrapAdmin = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -32,7 +30,6 @@ export const canBootstrapAdmin = createServerFn({ method: "GET" })
     return Boolean(data);
   });
 
-/** Claim admin + super_admin for the current user when no live administrators exist yet. */
 export const claimFirstAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -54,17 +51,58 @@ export const getAdminOverview = createServerFn({ method: "GET" })
       context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" }),
       context.supabase.rpc("has_role", { _user_id: context.userId, _role: "super_admin" }),
     ]);
-    if (role.error || superRole.error || (!role.data && !superRole.data)) throw new Error("Administrator access required");
-    const [profiles, transactions, loans, audit, cash, roles] = await Promise.all([
+    if (role.error || superRole.error) {
+      throw new Error(role.error?.message || superRole.error?.message || "Unable to check administrator access");
+    }
+    if (!role.data && !superRole.data) throw new Error("Administrator access required");
+
+    let cash = await context.supabase
+      .from("cash_requests")
+      .select("id,user_id,type,method,amount,status,note,destination,created_at")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (cash.error && /destination|column/i.test(cash.error.message || "")) {
+      cash = await context.supabase
+        .from("cash_requests")
+        .select("id,user_id,type,method,amount,status,note,created_at")
+        .order("created_at", { ascending: false })
+        .limit(200);
+    }
+
+    const [profiles, transactions, loans, audit, roles] = await Promise.all([
       context.supabase.from("profiles").select("id,full_name,cash,created_at,kyc_status,kyc_submitted_at,id_type").order("created_at", { ascending: false }).limit(500),
       context.supabase.from("transactions").select("id,user_id,type,symbol,amount,method,created_at,fee").order("created_at", { ascending: false }).limit(100),
       context.supabase.from("loans").select("id,user_id,kind,principal,balance,status,term_months,rate,created_at").order("created_at", { ascending: false }).limit(500),
       context.supabase.from("admin_audit").select("id,subject_id,action,note,created_at").order("created_at", { ascending: false }).limit(100),
-      context.supabase.from("cash_requests").select("id,user_id,type,method,amount,status,note,destination,created_at").order("created_at", { ascending: false }).limit(200),
-      superRole.data ? context.supabase.from("user_roles").select("user_id,role") : Promise.resolve({ data: [], error: null }),
+      context.supabase.from("user_roles").select("user_id,role"),
     ]);
-    if (profiles.error || transactions.error || loans.error || audit.error || cash.error) throw new Error("Unable to load administration records");
-    return { profiles: profiles.data ?? [], transactions: transactions.data ?? [], loans: loans.data ?? [], audit: audit.data ?? [], cash: cash.data ?? [], roles: (roles.data ?? []) as { user_id: string; role: string }[], isSuper: Boolean(superRole.data) };
+
+    const failures = [
+      profiles.error && `profiles: ${profiles.error.message}`,
+      transactions.error && `transactions: ${transactions.error.message}`,
+      loans.error && `loans: ${loans.error.message}`,
+      audit.error && `audit: ${audit.error.message}`,
+      cash.error && `cash_requests: ${cash.error.message}`,
+      roles.error && `user_roles: ${roles.error.message}`,
+    ].filter(Boolean);
+    if (failures.length) {
+      throw new Error(`Unable to load administration records (${failures.join("; ")})`);
+    }
+
+    const cashRows = (cash.data ?? []).map((row: Record<string, unknown>) => ({
+      ...row,
+      destination: (row as { destination?: unknown }).destination ?? null,
+    }));
+
+    return {
+      profiles: profiles.data ?? [],
+      transactions: transactions.data ?? [],
+      loans: loans.data ?? [],
+      audit: audit.data ?? [],
+      cash: cashRows,
+      roles: (roles.data ?? []) as { user_id: string; role: string }[],
+      isSuper: Boolean(superRole.data),
+    };
   });
 
 export const getIdentityDocument = createServerFn({ method: "GET" })
@@ -167,7 +205,7 @@ export const getAccountDetail = createServerFn({ method: "GET" })
       context.supabase.from("holdings").select("symbol,qty,avg_cost").eq("user_id", id).order("symbol"),
       context.supabase.from("transactions").select("id,type,symbol,qty,price,amount,fee,method,note,created_at").eq("user_id", id).order("created_at", { ascending: false }).limit(200),
       context.supabase.from("loans").select("id,kind,principal,balance,monthly_payment,rate,term_months,status,created_at").eq("user_id", id).order("created_at", { ascending: false }),
-      context.supabase.from("cash_requests").select("id,type,method,amount,status,note,destination,created_at").eq("user_id", id).order("created_at", { ascending: false }).limit(100),
+      context.supabase.from("cash_requests").select("id,type,method,amount,status,note,created_at").eq("user_id", id).order("created_at", { ascending: false }).limit(100),
       context.supabase.from("admin_audit").select("id,action,note,created_at").eq("subject_id", id).order("created_at", { ascending: false }).limit(100),
     ]);
     if (profile.error || !profile.data) throw new Error("Account not found");
