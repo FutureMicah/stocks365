@@ -84,6 +84,9 @@ function Funds() {
           <Input aria-label="Amount (USD)" type="number" min="1" max={type === "withdrawal" ? cash : 10_000_000} step="0.01" required placeholder="Amount (USD)" className="num min-w-0 flex-1" disabled={busy} value={amount} onChange={(e) => setAmount(e.target.value)} />
           <Button type="submit" variant="hero" disabled={busy || !valid || profile.isLoading || profile.isError}>{busy ? "Processing…" : type === "deposit" ? "Deposit" : "Withdraw"}</Button>
         </div>
+        {amount !== "" && !Number.isFinite(value) && <p className="text-sm text-destructive">Enter a valid dollar amount.</p>}
+        {Number.isFinite(value) && value > 0 && value < 1 && <p className="text-sm text-destructive">Minimum amount is $1.00.</p>}
+        {Number.isFinite(value) && Math.abs(value * 100 - Math.round(value * 100)) >= 0.000001 && <p className="text-sm text-destructive">Use at most two decimal places.</p>}
         {type === "withdrawal" && value > cash && <p className="text-sm text-destructive">Amount exceeds your available cash.</p>}
         {message && <p role="status" className="text-sm">{message}</p>}
         {profile.isError && <p role="alert" className="text-sm text-destructive">Unable to load your balance. Refresh before transferring.</p>}
@@ -91,7 +94,7 @@ function Funds() {
       </form>
       <div className="glass rounded-2xl p-6">
         <h2 className="mb-4 font-semibold">Your requests</h2>
-        {reqs.isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : !reqs.data?.length ? <p className="text-sm text-muted-foreground">No requests yet.</p> : (
+        {reqs.isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : reqs.isError ? <p role="alert" className="text-sm text-destructive">Unable to load request history.</p> : !reqs.data?.length ? <p className="text-sm text-muted-foreground">No requests yet.</p> : (
           <ul className="divide-y divide-border">{reqs.data.map((r) => <li key={r.id} className="flex justify-between gap-3 py-3 text-sm"><div><p className="capitalize">{r.type} · <span className="uppercase text-muted-foreground">{r.method}</span></p><p className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString()}{r.note ? ` · ${r.note}` : ""}</p></div><div className="text-right"><p className="num">{fmt(Number(r.amount))}</p><p className={`text-xs capitalize ${r.status === "approved" ? "text-success" : r.status === "rejected" ? "text-destructive" : "text-muted-foreground"}`}>{r.status}</p></div></li>)}</ul>
         )}
       </div>
