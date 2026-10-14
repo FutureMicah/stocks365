@@ -12,14 +12,14 @@ import { fmt, profileQ, txQ } from "@/lib/data";
 import { getFundingInstructions, type FundingInstructions } from "@/lib/funding.functions";
 
 export const Route = createFileRoute("/_authenticated/funds")({
-  head: () => ({ meta: [{ title: "Funds — stocks365" }, { name: "description", content: "Deposit and withdraw funds by ACH transfer or crypto." }] }),
+  head: () => ({ meta: [{ title: "Funds — stocks365" }, { name: "description", content: "Deposit and withdraw by bank transfer (ACH) or crypto." }] }),
   component: Funds,
 });
 
 const methods = [
-  { id: "ach", label: "ACH transfer", icon: Building2, note: "1–3 business days" },
-  { id: "crypto", label: "Crypto deposit", icon: Bitcoin, note: "~30 minutes" },
-] as const;
+  { id: "ach" as const, labelDeposit: "Bank transfer (ACH)", labelWithdraw: "Bank transfer (ACH)", icon: Building2, noteDeposit: "1–3 business days after approval", noteWithdraw: "Paid to your bank after admin approval" },
+  { id: "crypto" as const, labelDeposit: "Crypto deposit", labelWithdraw: "Crypto withdrawal", icon: Bitcoin, noteDeposit: "~30 minutes after confirmation", noteWithdraw: "Sent to your wallet after admin approval" },
+];
 
 function Funds() {
   const qc = useQueryClient();
@@ -28,15 +28,46 @@ function Funds() {
   const tx = useQuery(txQ);
   const loadInstructions = useServerFn(getFundingInstructions);
   const instructions = useQuery({ queryKey: ["funding-instructions"], queryFn: () => loadInstructions() });
-  const reqs = useQuery({ queryKey: ["cash-requests"], queryFn: async () => { const { data, error } = await supabase.from("cash_requests").select("id,type,method,amount,status,note,created_at").order("created_at", { ascending: false }).limit(20); if (error) throw error; return data; } });
+  const reqs = useQuery({
+    queryKey: ["cash-requests"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cash_requests")
+        .select("id,type,method,amount,status,note,destination,created_at")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data;
+    },
+  });
   const [type, setType] = useState<"deposit" | "withdrawal">("deposit");
-  const [method, setMethod] = useState<(typeof methods)[number]["id"]>("ach");
+  const [method, setMethod] = useState<"ach" | "crypto">("ach");
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [accountName, setAccountName] = useState("");
+  const [routingNumber, setRoutingNumber] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [asset, setAsset] = useState("USDT");
+  const [network, setNetwork] = useState("TRC20");
+  const [address, setAddress] = useState("");
+
   const cash = profile.data?.cash ?? 0;
   const value = Number(amount);
-  const valid = Number.isFinite(value) && value >= 1 && value <= 10_000_000 && Math.abs(value * 100 - Math.round(value * 100)) < 0.000001 && (type === "deposit" || value <= cash);
+  const amountOk =
+    Number.isFinite(value) &&
+    value >= 1 &&
+    value <= 10_000_000 &&
+    Math.abs(value * 100 - Math.round(value * 100)) < 0.000001 &&
+    (type === "deposit" || value <= cash);
+
+  const destOk =
+    type === "deposit" ||
+    (method === "ach"
+      ? accountName.trim().length >= 2 && /^\d{9}$/.test(routingNumber.trim()) && /^\d{4,17}$/.test(accountNumber.trim())
+      : asset.trim().length >= 2 && network.trim().length >= 2 && address.trim().length >= 8);
+
+  const valid = amountOk && destOk;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,11 +75,29 @@ function Funds() {
     setMessage("");
     setBusy(true);
     try {
-      await move({ data: { type, method, amount: Number(amount) } });
+      const destination =
+        type === "withdrawal"
+          ? method === "ach"
+            ? { accountName: accountName.trim(), routingNumber: routingNumber.trim(), accountNumber: accountNumber.trim() }
+            : { asset: asset.trim(), network: network.trim(), address: address.trim() }
+          : undefined;
+      await move({ data: { type, method, amount: value, destination } });
       toast.success("Request sent for administrator approval");
-      setMessage(`${type === "deposit" ? "Deposit" : "Withdrawal"} request of ${fmt(value)} submitted. Your balance updates once an administrator approves it.`);
+      setMessage(
+        `${type === "deposit" ? "Deposit" : "Withdrawal"} request of ${fmt(value)} submitted. Your balance updates once an administrator approves it.`,
+      );
       setAmount("");
-      await Promise.all([qc.invalidateQueries({ queryKey: ["profile"] }), qc.invalidateQueries({ queryKey: ["transactions"] }), qc.invalidateQueries({ queryKey: ["cash-requests"] })]);
+      if (type === "withdrawal") {
+        setAccountName("");
+        setRoutingNumber("");
+        setAccountNumber("");
+        setAddress("");
+      }
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["profile"] }),
+        qc.invalidateQueries({ queryKey: ["transactions"] }),
+        qc.invalidateQueries({ queryKey: ["cash-requests"] }),
+      ]);
     } catch (err) {
       toast.error((err as Error).message);
       setMessage((err as Error).message);
@@ -58,54 +107,206 @@ function Funds() {
   }
 
   const cashTx = (tx.data ?? []).filter((t) => ["deposit", "withdrawal"].includes(t.type)).slice(0, 15);
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Deposit & withdraw</h1>
-        <p className="text-sm text-muted-foreground">Available cash: <span className="num text-foreground">{fmt(profile.data?.cash ?? 0)}</span></p>
+        <p className="text-sm text-muted-foreground">
+          Available cash: <span className="num text-foreground">{fmt(profile.data?.cash ?? 0)}</span>
+        </p>
       </div>
+
       <form onSubmit={submit} className="glass space-y-5 rounded-lg p-6">
         <div className="grid w-full max-w-64 grid-cols-2 gap-1 rounded-lg bg-muted p-1">
           {(["deposit", "withdrawal"] as const).map((t) => (
-            <Button type="button" key={t} disabled={busy} aria-pressed={type === t} variant={type === t ? "default" : "ghost"} onClick={() => { setType(t); setMessage(""); }} className="capitalize">{t === "withdrawal" ? "Withdraw" : "Deposit"}</Button>
-          ))}
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {methods.map((m) => (
-            <Button type="button" variant="outline" key={m.id} disabled={busy} aria-pressed={method === m.id} onClick={() => setMethod(m.id)} className={`h-auto flex-col items-start whitespace-normal rounded-lg border p-4 text-left transition ${method === m.id ? "border-primary bg-primary/10" : "border-border hover:bg-accent/40"}`}>
-              <m.icon className="h-5 w-5 text-primary" />
-              <p className="mt-2 text-sm font-semibold">{m.label}</p>
-              <span className="text-xs text-muted-foreground">{m.note}</span>
+            <Button
+              type="button"
+              key={t}
+              disabled={busy}
+              aria-pressed={type === t}
+              variant={type === t ? "default" : "ghost"}
+              onClick={() => {
+                setType(t);
+                setMessage("");
+              }}
+              className="capitalize"
+            >
+              {t === "withdrawal" ? "Withdraw" : "Deposit"}
             </Button>
           ))}
         </div>
-        {type === "deposit" && <DepositDetails method={method} q={instructions} />}
-        <div className="flex max-w-md flex-wrap gap-3">
-          <Input aria-label="Amount (USD)" type="number" min="1" max={type === "withdrawal" ? cash : 10_000_000} step="0.01" required placeholder="Amount (USD)" className="num min-w-0 flex-1" disabled={busy} value={amount} onChange={(e) => setAmount(e.target.value)} />
-          <Button type="submit" variant="hero" disabled={busy || !valid || profile.isLoading || profile.isError}>{busy ? "Processing…" : type === "deposit" ? "Deposit" : "Withdraw"}</Button>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {methods.map((m) => (
+            <Button
+              type="button"
+              variant="outline"
+              key={m.id}
+              disabled={busy}
+              aria-pressed={method === m.id}
+              onClick={() => setMethod(m.id)}
+              className={`h-auto flex-col items-start whitespace-normal rounded-lg border p-4 text-left transition ${
+                method === m.id ? "border-primary bg-primary/10" : "border-border hover:bg-accent/40"
+              }`}
+            >
+              <m.icon className="h-5 w-5 text-primary" />
+              <p className="mt-2 text-sm font-semibold">{type === "deposit" ? m.labelDeposit : m.labelWithdraw}</p>
+              <span className="text-xs text-muted-foreground">{type === "deposit" ? m.noteDeposit : m.noteWithdraw}</span>
+            </Button>
+          ))}
         </div>
+
+        {type === "deposit" && <DepositDetails method={method} q={instructions} />}
+
+        {type === "withdrawal" && method === "ach" && (
+          <div className="space-y-3 rounded-lg border border-border p-4">
+            <p className="text-sm font-semibold">Bank payout details</p>
+            <p className="text-xs text-muted-foreground">Where should we send this withdrawal after approval?</p>
+            <label className="block space-y-1 text-sm">
+              <span className="text-xs text-muted-foreground">Account holder name</span>
+              <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} maxLength={120} disabled={busy} required />
+            </label>
+            <label className="block space-y-1 text-sm">
+              <span className="text-xs text-muted-foreground">Routing number (9 digits)</span>
+              <Input className="num" value={routingNumber} onChange={(e) => setRoutingNumber(e.target.value)} maxLength={9} inputMode="numeric" disabled={busy} required />
+            </label>
+            <label className="block space-y-1 text-sm">
+              <span className="text-xs text-muted-foreground">Account number</span>
+              <Input className="num" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} maxLength={17} inputMode="numeric" disabled={busy} required />
+            </label>
+          </div>
+        )}
+
+        {type === "withdrawal" && method === "crypto" && (
+          <div className="space-y-3 rounded-lg border border-border p-4">
+            <p className="text-sm font-semibold">Crypto payout details</p>
+            <p className="text-xs text-muted-foreground">Enter the wallet that should receive this withdrawal after approval.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-1 text-sm">
+                <span className="text-xs text-muted-foreground">Asset</span>
+                <Input value={asset} onChange={(e) => setAsset(e.target.value)} maxLength={40} disabled={busy} required />
+              </label>
+              <label className="block space-y-1 text-sm">
+                <span className="text-xs text-muted-foreground">Network</span>
+                <Input value={network} onChange={(e) => setNetwork(e.target.value)} maxLength={60} disabled={busy} required placeholder="e.g. TRC20, ERC20, BTC" />
+              </label>
+            </div>
+            <label className="block space-y-1 text-sm">
+              <span className="text-xs text-muted-foreground">Wallet address</span>
+              <Input className="num" value={address} onChange={(e) => setAddress(e.target.value)} maxLength={128} disabled={busy} required />
+            </label>
+          </div>
+        )}
+
+        <div className="flex max-w-md flex-wrap gap-3">
+          <Input
+            aria-label="Amount (USD)"
+            type="number"
+            min="1"
+            max={type === "withdrawal" ? cash : 10_000_000}
+            step="0.01"
+            required
+            placeholder="Amount (USD)"
+            className="num min-w-0 flex-1"
+            disabled={busy}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+          <Button type="submit" variant="hero" disabled={busy || !valid || profile.isLoading || profile.isError}>
+            {busy ? "Processing…" : type === "deposit" ? "Deposit" : "Withdraw"}
+          </Button>
+        </div>
+
         {amount !== "" && !Number.isFinite(value) && <p className="text-sm text-destructive">Enter a valid dollar amount.</p>}
         {Number.isFinite(value) && value > 0 && value < 1 && <p className="text-sm text-destructive">Minimum amount is $1.00.</p>}
-        {Number.isFinite(value) && Math.abs(value * 100 - Math.round(value * 100)) >= 0.000001 && <p className="text-sm text-destructive">Use at most two decimal places.</p>}
+        {Number.isFinite(value) && Math.abs(value * 100 - Math.round(value * 100)) >= 0.000001 && (
+          <p className="text-sm text-destructive">Use at most two decimal places.</p>
+        )}
         {type === "withdrawal" && value > cash && <p className="text-sm text-destructive">Amount exceeds your available cash.</p>}
-        {message && <p role="status" className="text-sm">{message}</p>}
-        {profile.isError && <p role="alert" className="text-sm text-destructive">Unable to load your balance. Refresh before transferring.</p>}
-        <p className="text-xs text-muted-foreground">Every deposit and withdrawal is reviewed and approved by an administrator before your balance changes.</p>
+        {type === "withdrawal" && !destOk && amount !== "" && (
+          <p className="text-sm text-destructive">
+            {method === "ach" ? "Enter a complete bank account (name, 9-digit routing, account number)." : "Enter asset, network, and a valid wallet address."}
+          </p>
+        )}
+        {message && (
+          <p role="status" className="text-sm">
+            {message}
+          </p>
+        )}
+        {profile.isError && (
+          <p role="alert" className="text-sm text-destructive">
+            Unable to load your balance. Refresh before transferring.
+          </p>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Every deposit and withdrawal is reviewed by an administrator before your balance changes. Bank and crypto payouts are recorded for the admin review queue — they are not automated bank settlement.
+        </p>
       </form>
+
       <div className="glass rounded-2xl p-6">
         <h2 className="mb-4 font-semibold">Your requests</h2>
-        {reqs.isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : reqs.isError ? <p role="alert" className="text-sm text-destructive">Unable to load request history.</p> : !reqs.data?.length ? <p className="text-sm text-muted-foreground">No requests yet.</p> : (
-          <ul className="divide-y divide-border">{reqs.data.map((r) => <li key={r.id} className="flex justify-between gap-3 py-3 text-sm"><div><p className="capitalize">{r.type} · <span className="uppercase text-muted-foreground">{r.method}</span></p><p className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString()}{r.note ? ` · ${r.note}` : ""}</p></div><div className="text-right"><p className="num">{fmt(Number(r.amount))}</p><p className={`text-xs capitalize ${r.status === "approved" ? "text-success" : r.status === "rejected" ? "text-destructive" : "text-muted-foreground"}`}>{r.status}</p></div></li>)}</ul>
+        {reqs.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : reqs.isError ? (
+          <p role="alert" className="text-sm text-destructive">
+            Unable to load request history.
+          </p>
+        ) : !reqs.data?.length ? (
+          <p className="text-sm text-muted-foreground">No requests yet.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {reqs.data.map((r) => (
+              <li key={r.id} className="flex justify-between gap-3 py-3 text-sm">
+                <div>
+                  <p className="capitalize">
+                    {r.type} · <span className="uppercase text-muted-foreground">{r.method === "ach" ? "bank" : r.method}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(r.created_at).toLocaleString()}
+                    {r.destination ? ` · ${r.destination}` : r.note ? ` · ${r.note}` : ""}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="num">{fmt(Number(r.amount))}</p>
+                  <p
+                    className={`text-xs capitalize ${
+                      r.status === "approved" ? "text-success" : r.status === "rejected" ? "text-destructive" : "text-muted-foreground"
+                    }`}
+                  >
+                    {r.status}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
+
       <div className="glass rounded-2xl p-6">
         <h2 className="mb-4 font-semibold">Completed transfers</h2>
-        {tx.isLoading ? <p className="text-sm text-muted-foreground">Loading transfers…</p> : tx.isError ? <p role="alert" className="text-sm text-destructive">Unable to load transfer history.</p> : cashTx.length === 0 ? <p className="text-sm text-muted-foreground">No transfers yet.</p> : (
+        {tx.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading transfers…</p>
+        ) : tx.isError ? (
+          <p role="alert" className="text-sm text-destructive">
+            Unable to load transfer history.
+          </p>
+        ) : cashTx.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No transfers yet.</p>
+        ) : (
           <ul className="divide-y divide-border">
             {cashTx.map((t) => (
               <li key={t.id} className="flex justify-between py-3 text-sm">
-                <div><p className="capitalize">{t.type} · <span className="uppercase text-muted-foreground">{t.method}</span></p><p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleString()}</p></div>
-                <span className={`num ${t.amount >= 0 ? "text-success" : "text-destructive"}`}>{t.amount >= 0 ? "+" : ""}{fmt(t.amount)}</span>
+                <div>
+                  <p className="capitalize">
+                    {t.type} · <span className="uppercase text-muted-foreground">{t.method}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleString()}</p>
+                </div>
+                <span className={`num ${t.amount >= 0 ? "text-success" : "text-destructive"}`}>
+                  {t.amount >= 0 ? "+" : ""}
+                  {fmt(t.amount)}
+                </span>
               </li>
             ))}
           </ul>
@@ -115,22 +316,57 @@ function Funds() {
   );
 }
 
-function DepositDetails({ method, q }: { method: "ach" | "crypto"; q: { data: FundingInstructions | undefined; isLoading: boolean; isError: boolean } }) {
+function DepositDetails({
+  method,
+  q,
+}: {
+  method: "ach" | "crypto";
+  q: { data: FundingInstructions | undefined; isLoading: boolean; isError: boolean };
+}) {
   if (q.isLoading) return <div className="h-32 animate-pulse rounded-lg bg-muted" />;
-  if (q.isError || !q.data) return <p role="alert" className="text-sm text-destructive">Unable to load deposit instructions.</p>;
-  const rows: [string, string][] = method === "ach"
-    ? [["Bank name", q.data.ach.bankName], ["Account holder", q.data.ach.accountName], ["Routing number", q.data.ach.routingNumber], ["Account number", q.data.ach.accountNumber]]
-    : [["Asset", q.data.crypto.asset], ["Network", q.data.crypto.network], ["Wallet address", q.data.crypto.address]];
+  if (q.isError || !q.data)
+    return (
+      <p role="alert" className="text-sm text-destructive">
+        Unable to load deposit instructions.
+      </p>
+    );
+  const rows: [string, string][] =
+    method === "ach"
+      ? [
+          ["Bank name", q.data.ach.bankName],
+          ["Account holder", q.data.ach.accountName],
+          ["Routing number", q.data.ach.routingNumber],
+          ["Account number", q.data.ach.accountNumber],
+        ]
+      : [
+          ["Asset", q.data.crypto.asset],
+          ["Network", q.data.crypto.network],
+          ["Wallet address", q.data.crypto.address],
+        ];
   const note = method === "ach" ? q.data.ach.instructions : q.data.crypto.instructions;
   const set = rows.filter(([, v]) => v);
   return (
     <div className="space-y-3">
-      {set.length === 0 ? <p className="text-sm text-muted-foreground">Deposit details for this method have not been set up yet.</p> : (
+      <p className="text-sm font-semibold">Send your deposit here</p>
+      {set.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Deposit details for this method have not been set up yet.</p>
+      ) : (
         <dl className="divide-y divide-border rounded-lg border border-border">
           {set.map(([label, value]) => (
             <div key={label} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
               <dt className="text-muted-foreground">{label}</dt>
-              <dd className="flex min-w-0 items-center gap-2"><span className="num break-all text-right">{value}</span><Button type="button" variant="ghost" size="icon" aria-label={`Copy ${label}`} onClick={() => navigator.clipboard.writeText(value).then(() => toast.success(`${label} copied`))}><Copy className="h-4 w-4" /></Button></dd>
+              <dd className="flex min-w-0 items-center gap-2">
+                <span className="num break-all text-right">{value}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Copy ${label}`}
+                  onClick={() => navigator.clipboard.writeText(value).then(() => toast.success(`${label} copied`))}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </dd>
             </div>
           ))}
         </dl>
