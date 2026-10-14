@@ -12,11 +12,56 @@ export type Trader = {
 };
 
 export const COPY_TRADERS: Trader[] = [
-  { id: "lisa-anderson", name: "Lisa Anderson", strategy: "Large-cap growth", return12m: 38.4, winRate: 71, risk: "Moderate", bio: "Twelve years trading NYSE large caps. Focuses on earnings momentum and disciplined position sizing.", symbols: ["AAPL", "MSFT", "GOOGL", "AMZN"] },
-  { id: "james-carter", name: "James Carter", strategy: "Dividend income", return12m: 19.2, winRate: 78, risk: "Conservative", bio: "Builds steady income portfolios from dividend aristocrats and utility leaders.", symbols: ["JNJ", "PG", "KO", "XOM"] },
-  { id: "michael-bennett", name: "Michael Bennett", strategy: "Tech momentum", return12m: 52.7, winRate: 64, risk: "Aggressive", bio: "Rides semiconductor and software trends with tight stop-loss discipline.", symbols: ["NVDA", "AVGO", "AMD", "META"] },
-  { id: "david-sullivan", name: "David Sullivan", strategy: "Index swing", return12m: 24.1, winRate: 69, risk: "Moderate", bio: "Trades S&P 500 and Nasdaq-100 ETFs around macro events and seasonality.", symbols: ["SPY", "QQQ", "IWM"] },
-  { id: "robert-hayes", name: "Robert Hayes", strategy: "Value & financials", return12m: 16.8, winRate: 74, risk: "Conservative", bio: "Former bank analyst hunting undervalued financials and industrial names.", symbols: ["JPM", "BAC", "CAT", "UNH"] },
+  {
+    id: "lisa-anderson",
+    name: "Lisa Anderson",
+    strategy: "SMC · Smart Money Concepts",
+    return12m: 41.2,
+    winRate: 68,
+    risk: "Moderate",
+    bio: "Trades institutional order flow: liquidity sweeps, order blocks, and market structure shifts on large-cap tech. Waits for displacement before entering with the smart-money side.",
+    symbols: ["AAPL", "MSFT", "GOOGL", "AMZN"],
+  },
+  {
+    id: "noah-brooks",
+    name: "Noah Brooks",
+    strategy: "CRT · Candle Range Theory",
+    return12m: 33.6,
+    winRate: 72,
+    risk: "Moderate",
+    bio: "Maps prior candle ranges for continuation and reversal. Targets high-probability opens that reclaim or reject the previous session’s high and low on liquid US names.",
+    symbols: ["SPY", "QQQ", "IWM", "DIA"],
+  },
+  {
+    id: "michael-bennett",
+    name: "Michael Bennett",
+    strategy: "SLP · Session Liquidity Play",
+    return12m: 48.9,
+    winRate: 63,
+    risk: "Aggressive",
+    bio: "Hunts session open and London/NY liquidity pools in semiconductors and high-beta tech. Scales in after stops are run and structure flips in his direction.",
+    symbols: ["NVDA", "AVGO", "AMD", "META"],
+  },
+  {
+    id: "david-sullivan",
+    name: "David Sullivan",
+    strategy: "MNSR · Momentum & Structure Reversal",
+    return12m: 27.4,
+    winRate: 70,
+    risk: "Moderate",
+    bio: "Combines trend momentum with structure-based reversals at key highs and lows. Favors index ETFs when expansion follows a clear break of structure.",
+    symbols: ["SPY", "QQQ", "IWM"],
+  },
+  {
+    id: "robert-hayes",
+    name: "Robert Hayes",
+    strategy: "SLP · Session Liquidity Play",
+    return12m: 22.1,
+    winRate: 74,
+    risk: "Conservative",
+    bio: "Applies session liquidity logic to financials and quality cyclicals—fades stop hunts into value zones and holds for the next session’s continuation.",
+    symbols: ["JPM", "BAC", "CAT", "UNH"],
+  },
 ];
 
 export type CopyPosition = { symbol: string; qty: number; entry: number };
