@@ -19,6 +19,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedFundsRouteImport } from './routes/_authenticated/funds'
 import { Route as AuthenticatedLendingRouteImport } from './routes/_authenticated/lending'
+import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated/messages'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedStatementsRouteImport } from './routes/_authenticated/statements'
 import { Route as AuthenticatedCopyTradingRouteImport } from './routes/_authenticated/copy-trading'
@@ -72,6 +73,11 @@ const AuthenticatedLendingRoute = AuthenticatedLendingRouteImport.update({
   path: '/lending',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMessagesRoute = AuthenticatedMessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -98,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/funds': typeof AuthenticatedFundsRoute
   '/lending': typeof AuthenticatedLendingRoute
+  '/messages': typeof AuthenticatedMessagesRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/statements': typeof AuthenticatedStatementsRoute
   '/copy-trading': typeof AuthenticatedCopyTradingRoute
@@ -112,6 +119,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/funds': typeof AuthenticatedFundsRoute
   '/lending': typeof AuthenticatedLendingRoute
+  '/messages': typeof AuthenticatedMessagesRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/statements': typeof AuthenticatedStatementsRoute
   '/copy-trading': typeof AuthenticatedCopyTradingRoute
@@ -128,6 +136,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/funds': typeof AuthenticatedFundsRoute
   '/_authenticated/lending': typeof AuthenticatedLendingRoute
+  '/_authenticated/messages': typeof AuthenticatedMessagesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/statements': typeof AuthenticatedStatementsRoute
   '/_authenticated/copy-trading': typeof AuthenticatedCopyTradingRoute
@@ -144,6 +153,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/funds'
     | '/lending'
+    | '/messages'
     | '/settings'
     | '/statements'
     | '/copy-trading'
@@ -158,6 +168,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/funds'
     | '/lending'
+    | '/messages'
     | '/settings'
     | '/statements'
     | '/copy-trading'
@@ -173,6 +184,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/funds'
     | '/_authenticated/lending'
+    | '/_authenticated/messages'
     | '/_authenticated/settings'
     | '/_authenticated/statements'
     | '/_authenticated/copy-trading'
@@ -259,6 +271,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLendingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/messages': {
+      id: '/_authenticated/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof AuthenticatedMessagesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
@@ -288,6 +307,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFundsRoute: typeof AuthenticatedFundsRoute
   AuthenticatedLendingRoute: typeof AuthenticatedLendingRoute
+  AuthenticatedMessagesRoute: typeof AuthenticatedMessagesRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStatementsRoute: typeof AuthenticatedStatementsRoute
   AuthenticatedCopyTradingRoute: typeof AuthenticatedCopyTradingRoute
@@ -298,6 +318,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFundsRoute: AuthenticatedFundsRoute,
   AuthenticatedLendingRoute: AuthenticatedLendingRoute,
+  AuthenticatedMessagesRoute: AuthenticatedMessagesRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStatementsRoute: AuthenticatedStatementsRoute,
   AuthenticatedCopyTradingRoute: AuthenticatedCopyTradingRoute,
