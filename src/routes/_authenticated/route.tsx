@@ -6,6 +6,7 @@ import { Logo } from "@/components/Logo";
 import { KycForm } from "@/components/KycForm";
 import { fmt, profileQ } from "@/lib/data";
 import { getAdminAccess } from "@/lib/admin.functions";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -44,7 +45,9 @@ function Shell() {
   }
   const kycStatus = profile.data?.kyc_status;
   const verified = kycStatus === "verified";
-  const needsKyc = !!profile.data && !isAdmin && (kycStatus === "unverified" || kycStatus === "rejected");
+  const accountStatus = (profile.data as { account_status?: string } | undefined)?.account_status ?? "active";
+  const blocked = !isAdmin && (accountStatus === "suspended" || accountStatus === "banned");
+  const needsKyc = !!profile.data && !isAdmin && !blocked && (kycStatus === "unverified" || kycStatus === "rejected");
   const kycLabel = verified ? "Identity verified" : kycStatus === "submitted" ? "Identity under review" : "Verification needed";
 
   return (
@@ -65,6 +68,9 @@ function Shell() {
               {kycLabel}
             </p>
             <p className="mt-1 text-muted-foreground">Cash <span className="num text-foreground">{fmt(profile.data.cash)}</span></p>
+            {accountStatus !== "active" && (
+              <p className="mt-1 font-semibold capitalize text-destructive">{accountStatus}</p>
+            )}
           </div>
         )}
         <button onClick={signOut} className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-sidebar-accent hover:text-foreground">
@@ -79,6 +85,28 @@ function Shell() {
         <main className="flex-1 p-4 md:p-8">
           {profile.isLoading || adminAccess.isLoading ? (
             <div className="mx-auto h-64 max-w-xl animate-pulse rounded-2xl bg-muted" />
+          ) : blocked ? (
+            <div className="mx-auto max-w-lg space-y-4 py-12 text-center">
+              <h1 className="text-2xl font-semibold capitalize">{accountStatus} account</h1>
+              <p className="text-muted-foreground">
+                {accountStatus === "banned"
+                  ? "This account has been banned and can no longer trade or fund."
+                  : "This account is suspended. Trading and funding are disabled until an administrator restores access."}
+              </p>
+              {(profile.data as { status_note?: string } | undefined)?.status_note && (
+                <p className="rounded-lg border border-border bg-card p-4 text-sm">
+                  {(profile.data as { status_note?: string }).status_note}
+                </p>
+              )}
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button asChild variant="outline">
+                  <Link to="/messages">Message support</Link>
+                </Button>
+                <Button variant="ghost" onClick={signOut}>
+                  Log out
+                </Button>
+              </div>
+            </div>
           ) : profile.data && needsKyc && !["/messages", "/settings"].includes(location.pathname) ? (
             <>
               {kycStatus === "rejected" && (
