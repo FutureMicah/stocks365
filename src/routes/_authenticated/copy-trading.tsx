@@ -1,9 +1,11 @@
 import { createFileRoute, getRouteApi } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { placeTrade } from "@/lib/account.functions";
 import { fmt, pct, profileQ, useQuotes } from "@/lib/data";
 import { COPY_TRADERS, loadCopies, openBasket, saveCopies, type CopyAllocation } from "@/lib/copy-traders";
 
@@ -11,7 +13,7 @@ export const Route = createFileRoute("/_authenticated/copy-trading")({
   head: () => ({
     meta: [
       { title: "Copy trading — stocks365" },
-      { name: "description", content: "Paper copy trading marked to live US stock prices." },
+      { name: "description", content: "Allocate cash to copy traders; buys and sells update your wallet and holdings." },
     ],
   }),
   component: CopyDesk,
@@ -22,17 +24,18 @@ const MIN = 100;
 
 function CopyDesk() {
   const { user } = authRoute.useRouteContext();
+  const qc = useQueryClient();
+  const trade = useServerFn(placeTrade);
   const profile = useQuery(profileQ);
   const [copies, setCopies] = useState<CopyAllocation[]>(() => loadCopies(user.id));
   const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState<string | null>(null);
 
   const symbols = useMemo(() => COPY_TRADERS.flatMap((t) => t.symbols), []);
   const quotes = useQuotes(symbols);
   const qmap = useMemo(() => Object.fromEntries((quotes.data ?? []).map((q) => [q.symbol, q])), [quotes.data]);
 
   const cash = profile.data?.cash ?? 0;
-  const allocated = copies.reduce((sum, row) => sum + row.amount, 0);
-  const free = Math.max(0, cash - allocated);
 
   const books = copies.map((copy) => {
     const positions = copy.positions.map((p) => {
@@ -45,15 +48,24 @@ function CopyDesk() {
   });
   const equity = books.reduce((s, b) => s + b.value, 0);
   const openPL = books.reduce((s, b) => s + b.pl, 0);
+  const allocated = copies.reduce((sum, row) => sum + row.amount, 0);
 
   function commit(next: CopyAllocation[]) {
     setCopies(next);
     saveCopies(user.id, next);
   }
 
-  function start(traderId: string) {
+  async function refreshWallet() {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["profile"] }),
+      qc.invalidateQueries({ queryKey: ["holdings"] }),
+      qc.invalidateQueries({ queryKey: ["transactions"] }),
+    ]);
+  }
+
+  async function start(traderId: string) {
     const trader = COPY_TRADERS.find((t) => t.id === traderId);
-    if (!trader) return;
+    if (!trader || busy) return;
     const amount = Number(amounts[traderId]);
     if (!Number.isFinite(amount) || amount < MIN) {
       toast.error(`Enter at least ${fmt(MIN)} to copy this trader.`);
@@ -63,28 +75,76 @@ function CopyDesk() {
       toast.error("You are already copying this trader.");
       return;
     }
-    if (amount > free + 0.001) {
-      toast.error(`Only ${fmt(free)} of paper buying power is still free.`);
+    if (amount > cash + 0.001) {
+      toast.error(`Only ${fmt(cash)} cash is available.`);
       return;
     }
-    const positions = openBasket(
+    const planned = openBasket(
       amount,
       trader.symbols.map((symbol) => ({ symbol, price: qmap[symbol]?.price ?? 0 })),
       trader.symbols,
     );
-    if (!positions) {
+    if (!planned) {
       toast.error("Live prices are not in yet. Wait a moment and try again.");
       return;
     }
-    commit([...copies, { traderId, amount: Math.round(amount * 100) / 100, startedAt: new Date().toISOString(), positions }]);
-    setAmounts((prev) => ({ ...prev, [traderId]: "" }));
-    toast.success(`Paper copy opened for ${trader.name} at the latest prices.`);
+
+    setBusy(traderId);
+    const filled: CopyAllocation["positions"] = [];
+    try {
+      for (const leg of planned) {
+        const result = await trade({ data: { symbol: leg.symbol, side: "buy", qty: leg.qty } });
+        filled.push({ symbol: result.symbol, qty: leg.qty, entry: result.price });
+      }
+      const spent = Math.round(filled.reduce((s, p) => s + p.entry * p.qty, 0) * 100) / 100;
+      commit([
+        ...copies,
+        {
+          traderId,
+          amount: spent,
+          startedAt: new Date().toISOString(),
+          positions: filled,
+        },
+      ]);
+      setAmounts((prev) => ({ ...prev, [traderId]: "" }));
+      await refreshWallet();
+      toast.success(`Copy opened for ${trader.name}. ${fmt(spent)} invested into your holdings.`);
+    } catch (err) {
+      for (const leg of filled) {
+        try {
+          await trade({ data: { symbol: leg.symbol, side: "sell", qty: leg.qty } });
+        } catch {
+          /* leave partial holdings if unwind fails */
+        }
+      }
+      await refreshWallet();
+      toast.error((err as Error).message || "Could not open copy.");
+    } finally {
+      setBusy(null);
+    }
   }
 
-  function stop(traderId: string) {
+  async function stop(traderId: string) {
     const book = books.find((b) => b.copy.traderId === traderId);
-    commit(copies.filter((row) => row.traderId !== traderId));
-    toast.success(book ? `Closed at ${fmt(book.value)} (${book.pl >= 0 ? "+" : ""}${fmt(book.pl)}).` : "Copy stopped.");
+    if (!book || busy) return;
+    setBusy(traderId);
+    let proceeds = 0;
+    try {
+      for (const leg of book.positions) {
+        const result = await trade({ data: { symbol: leg.symbol, side: "sell", qty: leg.qty } });
+        proceeds += result.price * leg.qty;
+      }
+      proceeds = Math.round(proceeds * 100) / 100;
+      const pl = proceeds - book.copy.amount;
+      commit(copies.filter((row) => row.traderId !== traderId));
+      await refreshWallet();
+      toast.success(`Closed at ${fmt(proceeds)} (${pl >= 0 ? "+" : ""}${fmt(pl)}). Cash and holdings updated.`);
+    } catch (err) {
+      await refreshWallet();
+      toast.error((err as Error).message || "Could not close copy.");
+    } finally {
+      setBusy(null);
+    }
   }
 
   return (
@@ -92,14 +152,14 @@ function CopyDesk() {
       <div>
         <h1 className="text-2xl font-semibold">Copy trading</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Paper book only — no real broker. Copies fill at the latest US prices and mark to market about every 15 seconds.
+          Allocations buy into your wallet at live US prices and mark to market about every 15 seconds. Closing sells those shares back to cash.
           {quotes.isFetching ? " Updating prices…" : ""}
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Paper buying power" value={fmt(cash)} />
-        <Stat label="Allocated" value={fmt(allocated)} />
+        <Stat label="Available cash" value={fmt(cash)} />
+        <Stat label="Copy cost basis" value={fmt(allocated)} />
         <Stat label="Copy equity" value={fmt(equity || allocated)} />
         <Stat label="Open P/L" value={`${openPL >= 0 ? "+" : ""}${fmt(openPL)}`} tone={openPL} />
       </div>
@@ -107,6 +167,7 @@ function CopyDesk() {
       <div className="grid gap-4 lg:grid-cols-2">
         {COPY_TRADERS.map((trader) => {
           const book = books.find((b) => b.copy.traderId === trader.id);
+          const working = busy === trader.id;
           return (
             <article key={trader.id} className="glass flex flex-col rounded-2xl p-6">
               <div className="flex items-center gap-3">
@@ -149,7 +210,9 @@ function CopyDesk() {
                         Started {fmt(book.copy.amount)} · {pct(book.copy.amount ? (book.pl / book.copy.amount) * 100 : 0)}
                       </span>
                     </p>
-                    <Button type="button" variant="outline" onClick={() => stop(trader.id)}>Close copy</Button>
+                    <Button type="button" variant="outline" disabled={!!busy} onClick={() => stop(trader.id)}>
+                      {working ? "Closing…" : "Close copy"}
+                    </Button>
                   </div>
                 </>
               ) : (
@@ -157,7 +220,7 @@ function CopyDesk() {
                   className="mt-5 flex gap-2"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    start(trader.id);
+                    void start(trader.id);
                   }}
                 >
                   <Input
@@ -166,8 +229,11 @@ function CopyDesk() {
                     value={amounts[trader.id] ?? ""}
                     onChange={(event) => setAmounts((prev) => ({ ...prev, [trader.id]: event.target.value }))}
                     aria-label={`Amount to copy ${trader.name}`}
+                    disabled={!!busy}
                   />
-                  <Button type="submit" variant="hero" disabled={quotes.isLoading}>Copy</Button>
+                  <Button type="submit" variant="hero" disabled={!!busy || quotes.isLoading}>
+                    {working ? "Buying…" : "Copy"}
+                  </Button>
                 </form>
               )}
             </article>

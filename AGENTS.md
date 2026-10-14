@@ -14,3 +14,4 @@
 - Administration uses authenticated server functions and a separate user_roles table; validate roles before all privileged data access.
 - Identity decisions run through an atomic database function with an audit record so changes are traceable.
 - Wallet transfers remain practice-account operations until a licensed funding provider is connected; never imply bank settlement.
+- Copy trading must execute real in-app buys and sells so cash and holdings stay consistent with the copy book.
