@@ -77,7 +77,7 @@ export type CopyAllocation = {
   positions: CopyPosition[];
 };
 
-/** Split amount evenly across symbols using live prices; returns null if any price missing. */
+/** Build equal-weight basket from trader id + amount + price map. */
 export function openBasket(
   traderId: string,
   amount: number,
