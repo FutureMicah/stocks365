@@ -1,0 +1,14 @@
+{
+  "id": "0006_remove_practice_bonus",
+  "prevIds": ["0005_funding_instructions"],
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {},
+  "enums": {},
+  "schemas": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  }
+}

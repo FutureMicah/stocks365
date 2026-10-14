@@ -43,6 +43,13 @@
       "when": 1791930000000,
       "tag": "0005_funding_instructions",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791966000000,
+      "tag": "0006_remove_practice_bonus",
+      "breakpoints": true
     }
   ]
 }
