@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, Wallet, Landmark, FileText, Settings, LogOut, BadgeCheck, Users, Shield } from "lucide-react";
+import { LayoutDashboard, Wallet, Landmark, FileText, Settings, LogOut, BadgeCheck, Users, Shield, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
 import { KycForm } from "@/components/KycForm";
@@ -23,6 +23,7 @@ const nav = [
   { to: "/lending", label: "Lending", icon: Landmark },
   { to: "/statements", label: "Activity", icon: FileText },
   { to: "/copy-trading", label: "Copy", icon: Users },
+  { to: "/messages", label: "Messages", icon: MessageSquare },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
@@ -31,7 +32,6 @@ function Shell() {
   const navigate = useNavigate();
   const { user } = Route.useRouteContext();
   const profile = useQuery(profileQ);
-  // Same query key as the /admin route, so the result is shared from cache.
   const adminAccess = useQuery({ queryKey: ["admin-access"], queryFn: () => getAdminAccess() });
   const isAdmin = adminAccess.data === true;
   const items = isAdmin ? [...nav, { to: "/admin", label: "Admin", icon: Shield } as const] : nav;
@@ -43,8 +43,6 @@ function Shell() {
   }
   const kycStatus = profile.data?.kyc_status;
   const verified = kycStatus === "verified";
-  // Accounts that have never submitted, or were rejected, must (re)submit identity details.
-  // Administrators are exempt so they can always reach the admin console.
   const needsKyc = !!profile.data && !isAdmin && (kycStatus === "unverified" || kycStatus === "rejected");
   const kycLabel = verified ? "Identity verified" : kycStatus === "submitted" ? "Identity under review" : "Verification needed";
 
@@ -93,7 +91,7 @@ function Shell() {
             <Outlet />
           )}
         </main>
-        <nav className={`fixed inset-x-0 bottom-0 z-20 grid ${isAdmin ? "grid-cols-7" : "grid-cols-6"} border-t border-border bg-card md:hidden`}>
+        <nav className={`fixed inset-x-0 bottom-0 z-20 grid ${isAdmin ? "grid-cols-8" : "grid-cols-7"} border-t border-border bg-card md:hidden`}>
           {items.map((n) => (
             <Link key={n.to} to={n.to} className="flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold text-muted-foreground" activeProps={{ className: "!text-primary" }}>
               <n.icon className="h-5 w-5" />{n.label}
