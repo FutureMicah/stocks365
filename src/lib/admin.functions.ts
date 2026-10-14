@@ -9,25 +9,41 @@ export const getAdminAccess = createServerFn({ method: "GET" })
       context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" }),
       context.supabase.rpc("has_role", { _user_id: context.userId, _role: "super_admin" }),
     ]);
-    if (admin.error || superAdmin.error) throw new Error("Unable to check administrator access");
+    // Missing RPC / network: treat as not admin so the bootstrap gate can still render.
+    if (admin.error || superAdmin.error) {
+      console.error("has_role failed", admin.error || superAdmin.error);
+      return false;
+    }
     return Boolean(admin.data || superAdmin.data);
   });
 
-/** True only while no admin or super_admin rows exist — enables first-admin claim. */
+/** True only while no live admin or super_admin exists — enables first-admin claim. */
 export const canBootstrapAdmin = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase.rpc("admin_bootstrap_available");
-    if (error) throw new Error("Unable to check administrator bootstrap status");
+    if (error) {
+      throw new Error(
+        error.message?.includes("Could not find") || error.message?.includes("function")
+          ? "Admin bootstrap is not set up yet. Apply migration 0007_bootstrap_first_admin (and 0011) in the Supabase SQL Editor."
+          : error.message || "Unable to check administrator bootstrap status",
+      );
+    }
     return Boolean(data);
   });
 
-/** Claim admin + super_admin for the current user when no administrators exist yet. */
+/** Claim admin + super_admin for the current user when no live administrators exist yet. */
 export const claimFirstAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { error } = await context.supabase.rpc("bootstrap_first_admin");
-    if (error) throw new Error(error.message.replace(/^.*?EXCEPTION:?\s*/i, "") || "Unable to claim administrator access");
+    if (error) {
+      const msg = (error.message || "").replace(/^.*?EXCEPTION:?\s*/i, "");
+      if (/Could not find|function .* does not exist/i.test(error.message || "")) {
+        throw new Error("Apply migration 0007_bootstrap_first_admin in the Supabase SQL Editor, then try again.");
+      }
+      throw new Error(msg || "Unable to claim administrator access");
+    }
     return { ok: true };
   });
 
