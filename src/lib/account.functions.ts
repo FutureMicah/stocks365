@@ -37,19 +37,50 @@ export const placeTrade = createServerFn({ method: "POST" })
     return { price: q.price, symbol: q.symbol };
   });
 
+const achWithdraw = z.object({
+  accountName: z.string().trim().min(2).max(120),
+  routingNumber: z.string().trim().regex(/^\d{9}$/, "Routing number must be 9 digits"),
+  accountNumber: z.string().trim().regex(/^\d{4,17}$/, "Account number must be 4–17 digits"),
+});
+const cryptoWithdraw = z.object({
+  asset: z.string().trim().min(2).max(40),
+  network: z.string().trim().min(2).max(60),
+  address: z.string().trim().min(8).max(128).regex(/^[A-Za-z0-9:]+$/, "Wallet address may only contain letters, numbers, and colons"),
+});
+
 export const moveCash = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
-    z
-      .object({
-        type: z.enum(["deposit", "withdrawal"]),
-        amount: z.number().min(1).max(10_000_000).refine((v) => Math.abs(v * 100 - Math.round(v * 100)) < 0.000001, "Use no more than two decimal places"),
-        method: z.enum(["ach", "crypto"]),
-      })
-      .parse(d),
-  )
+  .inputValidator((d) => {
+    const base = z.object({
+      type: z.enum(["deposit", "withdrawal"]),
+      amount: z.number().min(1).max(10_000_000).refine((v) => Math.abs(v * 100 - Math.round(v * 100)) < 0.000001, "Use no more than two decimal places"),
+      method: z.enum(["ach", "crypto"]),
+      destination: z.union([achWithdraw, cryptoWithdraw]).optional(),
+    }).parse(d);
+    if (base.type === "withdrawal") {
+      if (!base.destination) throw new Error("Withdrawal destination is required");
+      if (base.method === "ach") achWithdraw.parse(base.destination);
+      else cryptoWithdraw.parse(base.destination);
+    }
+    return base;
+  })
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.rpc("request_cash", { _type: data.type, _method: data.method, _amount: data.amount });
+    let destination: string | null = null;
+    if (data.type === "withdrawal" && data.destination) {
+      if (data.method === "ach") {
+        const d = achWithdraw.parse(data.destination);
+        destination = `Bank transfer · ${d.accountName} · routing ${d.routingNumber} · account ${d.accountNumber}`;
+      } else {
+        const d = cryptoWithdraw.parse(data.destination);
+        destination = `Crypto · ${d.asset} on ${d.network} · ${d.address}`;
+      }
+    }
+    const { error } = await context.supabase.rpc("request_cash", {
+      _type: data.type,
+      _method: data.method,
+      _amount: data.amount,
+      _destination: destination,
+    });
     clean(error);
     return { ok: true };
   });
