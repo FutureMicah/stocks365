@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useLocation, redirect, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LayoutDashboard, Wallet, Landmark, FileText, Settings, LogOut, BadgeCheck, Users, Shield, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +31,7 @@ function Shell() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { user } = Route.useRouteContext();
+  const location = useLocation();
   const profile = useQuery(profileQ);
   const adminAccess = useQuery({ queryKey: ["admin-access"], queryFn: () => getAdminAccess() });
   const isAdmin = adminAccess.data === true;
@@ -78,7 +79,7 @@ function Shell() {
         <main className="flex-1 p-4 md:p-8">
           {profile.isLoading || adminAccess.isLoading ? (
             <div className="mx-auto h-64 max-w-xl animate-pulse rounded-2xl bg-muted" />
-          ) : profile.data && needsKyc ? (
+          ) : profile.data && needsKyc && !["/messages", "/settings"].includes(location.pathname) ? (
             <>
               {kycStatus === "rejected" && (
                 <p role="alert" className="mx-auto mb-4 max-w-xl rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
@@ -86,6 +87,12 @@ function Shell() {
                 </p>
               )}
               <KycForm userId={user.id} defaults={{ fullName: profile.data.full_name, ssnLast4: profile.data.ssn_last4 }} />
+              <p className="mx-auto mt-4 max-w-xl text-center text-sm text-muted-foreground">
+                Need help?{" "}
+                <Link to="/messages" className="font-semibold text-primary underline-offset-2 hover:underline">
+                  Message support
+                </Link>
+              </p>
             </>
           ) : (
             <Outlet />
