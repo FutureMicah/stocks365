@@ -1,0 +1,14 @@
+{
+  "id": "0009_withdrawal_destination",
+  "prevIds": ["0008_admin_chat"],
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {},
+  "enums": {},
+  "schemas": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  }
+}
