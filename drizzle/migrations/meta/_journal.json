@@ -14,6 +14,7 @@
     {"idx": 9, "version": "7", "when": 1791975000000, "tag": "0009_withdrawal_destination", "breakpoints": true},
     {"idx": 10, "version": "7", "when": 1791978000000, "tag": "0010_user_start_chat", "breakpoints": true},
     {"idx": 11, "version": "7", "when": 1791981000000, "tag": "0011_admin_bootstrap_fix", "breakpoints": true},
-    {"idx": 12, "version": "7", "when": 1791984000000, "tag": "0012_super_admin_implies_admin", "breakpoints": true}
+    {"idx": 12, "version": "7", "when": 1791984000000, "tag": "0012_super_admin_implies_admin", "breakpoints": true},
+    {"idx": 13, "version": "7", "when": 1791987000000, "tag": "0013_copy_allocations", "breakpoints": true}
   ]
 }

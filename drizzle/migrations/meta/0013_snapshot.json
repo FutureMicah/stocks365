@@ -1,0 +1,14 @@
+{
+  "id": "0013_copy_allocations",
+  "prevIds": ["0012_super_admin_implies_admin"],
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {},
+  "enums": {},
+  "schemas": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  }
+}
