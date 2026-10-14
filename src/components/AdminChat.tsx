@@ -95,7 +95,7 @@ export function AdminChat({ profiles }: { profiles: Profile[] }) {
           onChange={(e) => setFilter(e.target.value)}
         />
         <p className="text-xs text-muted-foreground">
-          Only administrators see this full chat history. Message a user to open a thread; they can reply afterward.
+          Users can message support first. This panel shows every conversation; reply here to any account.
         </p>
         <ul className="max-h-[28rem] space-y-1 overflow-y-auto">
           {filtered.map((p) => {

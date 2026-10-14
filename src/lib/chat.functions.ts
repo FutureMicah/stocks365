@@ -15,7 +15,7 @@ async function requireAdmin(context: {
   if (error || !data) throw new Error("Administrator access required");
 }
 
-/** Admin: list every thread with the latest message preview (full history directory). */
+/** Admin: list every thread with the latest message preview. */
 export const adminListThreads = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -25,7 +25,7 @@ export const adminListThreads = createServerFn({ method: "GET" })
       .select("id,user_id,created_by,created_at,last_message_at")
       .order("last_message_at", { ascending: false })
       .limit(200);
-    if (error) throw new Error("Unable to load conversations");
+    if (error) throw new Error(error.message || "Unable to load conversations");
     const rows = threads ?? [];
     if (!rows.length) return [];
     const userIds = [...new Set(rows.map((t) => t.user_id))];
@@ -63,7 +63,7 @@ export const adminListMessages = createServerFn({ method: "GET" })
       .eq("thread_id", data.threadId)
       .order("created_at", { ascending: true })
       .limit(500);
-    if (error) throw new Error("Unable to load messages");
+    if (error) throw new Error(error.message || "Unable to load messages");
     return messages ?? [];
   });
 
@@ -101,7 +101,22 @@ export const sendChatMessage = createServerFn({ method: "POST" })
     return { id: id as string };
   });
 
-/** User: own thread (if any) + messages. No cross-user history. */
+/**
+ * User (or any signed-in account): open own support thread if needed and optionally post a message.
+ * This is what lets customers text the admin first.
+ */
+export const userOpenChat = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ body: z.string().trim().min(1).max(2000).optional() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const { data: threadId, error } = await context.supabase.rpc("user_open_chat", {
+      _body: data.body ?? null,
+    });
+    clean(error);
+    return { threadId: threadId as string };
+  });
+
+/** User: own thread (if any) + messages. Creates nothing — use userOpenChat to start. */
 export const getMyChat = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -110,14 +125,21 @@ export const getMyChat = createServerFn({ method: "GET" })
       .select("id,user_id,created_at,last_message_at")
       .eq("user_id", context.userId)
       .maybeSingle();
-    if (error) throw new Error("Unable to load conversation");
-    if (!thread) return { thread: null, messages: [] as { id: string; sender_id: string; body: string; created_at: string }[] };
+    if (error) {
+      throw new Error(error.message || "Unable to load conversation");
+    }
+    if (!thread) {
+      return {
+        thread: null as null,
+        messages: [] as { id: string; sender_id: string; body: string; created_at: string }[],
+      };
+    }
     const { data: messages, error: me } = await context.supabase
       .from("chat_messages")
       .select("id,sender_id,body,created_at")
       .eq("thread_id", thread.id)
       .order("created_at", { ascending: true })
       .limit(200);
-    if (me) throw new Error("Unable to load messages");
+    if (me) throw new Error(me.message || "Unable to load messages");
     return { thread, messages: messages ?? [] };
   });
