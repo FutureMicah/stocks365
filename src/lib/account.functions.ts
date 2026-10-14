@@ -51,12 +51,18 @@ const cryptoWithdraw = z.object({
 export const moveCash = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => {
-    const base = z.object({
-      type: z.enum(["deposit", "withdrawal"]),
-      amount: z.number().min(1).max(10_000_000).refine((v) => Math.abs(v * 100 - Math.round(v * 100)) < 0.000001, "Use no more than two decimal places"),
-      method: z.enum(["ach", "crypto"]),
-      destination: z.union([achWithdraw, cryptoWithdraw]).optional(),
-    }).parse(d);
+    const base = z
+      .object({
+        type: z.enum(["deposit", "withdrawal"]),
+        amount: z
+          .number()
+          .min(1)
+          .max(10_000_000)
+          .refine((v) => Math.abs(v * 100 - Math.round(v * 100)) < 0.000001, "Use no more than two decimal places"),
+        method: z.enum(["ach", "crypto"]),
+        destination: z.union([achWithdraw, cryptoWithdraw]).optional(),
+      })
+      .parse(d);
     if (base.type === "withdrawal") {
       if (!base.destination) throw new Error("Withdrawal destination is required");
       if (base.method === "ach") achWithdraw.parse(base.destination);
@@ -75,13 +81,38 @@ export const moveCash = createServerFn({ method: "POST" })
         destination = `Crypto · ${d.asset} on ${d.network} · ${d.address}`;
       }
     }
-    const { error } = await context.supabase.rpc("request_cash", {
+
+    const payload: Record<string, unknown> = {
       _type: data.type,
       _method: data.method,
       _amount: data.amount,
-      _destination: destination,
-    });
-    clean(error);
+    };
+    if (destination) payload._destination = destination;
+
+    let { error } = await context.supabase.rpc("request_cash", payload);
+    if (error && data.type === "deposit" && /destination|_destination|schema cache|function/i.test(error.message || "")) {
+      const retry = await context.supabase.rpc("request_cash", {
+        _type: data.type,
+        _method: data.method,
+        _amount: data.amount,
+      });
+      error = retry.error;
+    }
+    if (error) {
+      const raw = error.message || "";
+      const cleaned = raw.replace(/^.*?EXCEPTION:?\s*/i, "");
+      if (/destination|column.*cash_requests/i.test(raw)) {
+        throw new Error(
+          "Deposit setup is incomplete in the database. In Lovable SQL run migration 0014 (destination column + request_cash), then try again.",
+        );
+      }
+      if (/Could not find the function|schema cache/i.test(raw)) {
+        throw new Error(
+          "Cash request function is missing. Apply drizzle/migrations/0014_request_cash_safe.sql in Lovable SQL, then try again.",
+        );
+      }
+      throw new Error(cleaned || "Unable to submit cash request");
+    }
     return { ok: true };
   });
 
