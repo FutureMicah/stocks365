@@ -77,42 +77,27 @@ export type CopyAllocation = {
   positions: CopyPosition[];
 };
 
-function key(userId: string) {
-  return `stocks365.copy.${userId}`;
-}
-
-export function loadCopies(userId: string): CopyAllocation[] {
-  try {
-    const raw = localStorage.getItem(key(userId));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as CopyAllocation[];
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (row) =>
-        COPY_TRADERS.some((t) => t.id === row.traderId) &&
-        row.amount > 0 &&
-        Array.isArray(row.positions) &&
-        row.positions.length > 0,
-    );
-  } catch {
-    return [];
+/** Split amount evenly across symbols using live prices; returns null if any price missing. */
+export function openBasket(
+  traderId: string,
+  amount: number,
+  prices: Record<string, number>,
+): CopyAllocation | null {
+  const trader = COPY_TRADERS.find((t) => t.id === traderId);
+  if (!trader || !(amount > 0)) return null;
+  const per = amount / trader.symbols.length;
+  const positions: CopyPosition[] = [];
+  for (const symbol of trader.symbols) {
+    const entry = prices[symbol];
+    if (!(entry > 0)) return null;
+    const qty = Math.floor((per / entry) * 10000) / 10000;
+    if (qty <= 0) return null;
+    positions.push({ symbol, qty, entry });
   }
-}
-
-export function saveCopies(userId: string, rows: CopyAllocation[]) {
-  localStorage.setItem(key(userId), JSON.stringify(rows));
-}
-
-export function openBasket(amount: number, quotes: { symbol: string; price: number }[], symbols: string[]): CopyPosition[] | null {
-  const priced = symbols.map((symbol) => {
-    const quote = quotes.find((q) => q.symbol === symbol);
-    return quote && quote.price > 0 ? { symbol, price: quote.price } : null;
-  });
-  if (priced.some((row) => !row)) return null;
-  const slice = amount / priced.length;
-  return priced.map((row) => ({
-    symbol: row!.symbol,
-    entry: row!.price,
-    qty: Math.round((slice / row!.price) * 10000) / 10000,
-  }));
+  return {
+    traderId,
+    amount,
+    startedAt: new Date().toISOString(),
+    positions,
+  };
 }
