@@ -44,7 +44,7 @@ export const getAdminOverview = createServerFn({ method: "GET" })
       context.supabase.from("transactions").select("id,user_id,type,symbol,amount,method,created_at,fee").order("created_at", { ascending: false }).limit(100),
       context.supabase.from("loans").select("id,user_id,kind,principal,balance,status,term_months,rate,created_at").order("created_at", { ascending: false }).limit(500),
       context.supabase.from("admin_audit").select("id,subject_id,action,note,created_at").order("created_at", { ascending: false }).limit(100),
-      context.supabase.from("cash_requests").select("id,user_id,type,method,amount,status,note,created_at").order("created_at", { ascending: false }).limit(200),
+      context.supabase.from("cash_requests").select("id,user_id,type,method,amount,status,note,destination,created_at").order("created_at", { ascending: false }).limit(200),
       superRole.data ? context.supabase.from("user_roles").select("user_id,role") : Promise.resolve({ data: [], error: null }),
     ]);
     if (profiles.error || transactions.error || loans.error || audit.error || cash.error) throw new Error("Unable to load administration records");
@@ -151,7 +151,7 @@ export const getAccountDetail = createServerFn({ method: "GET" })
       context.supabase.from("holdings").select("symbol,qty,avg_cost").eq("user_id", id).order("symbol"),
       context.supabase.from("transactions").select("id,type,symbol,qty,price,amount,fee,method,note,created_at").eq("user_id", id).order("created_at", { ascending: false }).limit(200),
       context.supabase.from("loans").select("id,kind,principal,balance,monthly_payment,rate,term_months,status,created_at").eq("user_id", id).order("created_at", { ascending: false }),
-      context.supabase.from("cash_requests").select("id,type,method,amount,status,note,created_at").eq("user_id", id).order("created_at", { ascending: false }).limit(100),
+      context.supabase.from("cash_requests").select("id,type,method,amount,status,note,destination,created_at").eq("user_id", id).order("created_at", { ascending: false }).limit(100),
       context.supabase.from("admin_audit").select("id,action,note,created_at").eq("subject_id", id).order("created_at", { ascending: false }).limit(100),
     ]);
     if (profile.error || !profile.data) throw new Error("Account not found");
