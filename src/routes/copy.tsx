@@ -38,49 +38,55 @@ function CopyTrading() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-7xl px-4 py-16 text-center">
-        <p className="text-xs font-semibold uppercase tracking-widest text-primary">Copy trading</p>
-        <h1 className="mx-auto mt-3 max-w-2xl text-4xl font-bold leading-tight sm:text-5xl">Invest alongside proven traders</h1>
-        <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-          Pick a strategy you believe in and mirror it in your own account. You keep full control — start, pause, or stop copying at any time.
-        </p>
-      </section>
-
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 pb-16 sm:grid-cols-2 lg:grid-cols-3">
-        {traders.map((t) => (
-          <article key={t.name} className="glass flex flex-col rounded-2xl p-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
-                {t.name.split(" ").map((n) => n[0]).join("")}
-              </div>
-              <div>
-                <h2 className="font-semibold">{t.name}</h2>
-                <p className="text-xs text-muted-foreground">{t.strategy}</p>
-              </div>
-            </div>
-            <p className="mt-4 flex-1 text-sm text-muted-foreground">{t.bio}</p>
-            <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm">
-              <div><dt className="text-xs text-muted-foreground">12-month return</dt><dd className="num font-semibold text-success">{t.return12m}</dd></div>
-              <div><dt className="text-xs text-muted-foreground">Win rate</dt><dd className="num font-semibold">{t.winRate}</dd></div>
-              <div><dt className="text-xs text-muted-foreground">Copiers</dt><dd className="num font-semibold">{t.copiers.toLocaleString()}</dd></div>
-              <div><dt className="text-xs text-muted-foreground">Risk level</dt><dd className="font-semibold">{t.risk}</dd></div>
-            </dl>
-            <Button asChild variant="hero" className="mt-5 w-full">
-              <Link to="/copy-trading">Copy {t.name.split(" ")[0]} <ArrowRight className="h-4 w-4" /></Link>
-            </Button>
-          </article>
-        ))}
-      </section>
-
-      <section className="border-t border-border bg-muted/40">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-14 sm:grid-cols-3">
-          <div className="flex gap-3"><TrendingUp className="h-6 w-6 shrink-0 text-primary" /><div><h3 className="font-semibold">Live prices, paper fills</h3><p className="mt-1 text-sm text-muted-foreground">Copied baskets fill at the latest market price and mark to market while you hold them. Nothing is sent to a real broker.</p></div></div>
-          <div className="flex gap-3"><Users className="h-6 w-6 shrink-0 text-primary" /><div><h3 className="font-semibold">You stay in control</h3><p className="mt-1 text-sm text-muted-foreground">Set your own allocation per trader and stop copying whenever you like.</p></div></div>
-          <div className="flex gap-3"><ShieldCheck className="h-6 w-6 shrink-0 text-primary" /><div><h3 className="font-semibold">Verified track records</h3><p className="mt-1 text-sm text-muted-foreground">Every featured trader completes identity verification before being listed.</p></div></div>
+      <section className="border-b border-border bg-deep-grad py-16 text-deep-foreground md:py-24">
+        <div className="mx-auto max-w-7xl px-4 text-center">
+          <p className="text-sm font-semibold uppercase tracking-wider text-primary">Copy trading</p>
+          <h1 className="mt-3 text-4xl font-bold md:text-5xl">Trade alongside experienced investors</h1>
+          <p className="mx-auto mt-4 max-w-2xl text-deep-foreground/70">
+            Allocate cash to a trader's basket. Buys and sells hit your wallet at live US market prices so your portfolio stays in sync.
+          </p>
+          <Button asChild variant="hero" size="lg" className="mt-8">
+            <Link to="/auth" search={{ mode: "signup" }}>Get started <ArrowRight className="ml-1 h-4 w-4" /></Link>
+          </Button>
         </div>
-        <p className="mx-auto max-w-3xl px-4 pb-12 text-center text-xs text-muted-foreground">
-          Past performance does not guarantee future results. Copy trading involves risk, including the possible loss of principal.
-        </p>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 py-16">
+        <div className="grid gap-8 md:grid-cols-3">
+          <div className="flex gap-3"><Users className="h-6 w-6 shrink-0 text-primary" /><div><h3 className="font-semibold">Curated traders</h3><p className="mt-1 text-sm text-muted-foreground">Each profile lists strategy, risk level, and a transparent basket of US stocks and ETFs.</p></div></div>
+          <div className="flex gap-3"><TrendingUp className="h-6 w-6 shrink-0 text-primary" /><div><h3 className="font-semibold">Live prices, wallet fills</h3><p className="mt-1 text-sm text-muted-foreground">Copied baskets buy into your account at the latest market price, update cash and holdings, and mark to market while you hold them.</p></div></div>
+          <div className="flex gap-3"><ShieldCheck className="h-6 w-6 shrink-0 text-primary" /><div><h3 className="font-semibold">You stay in control</h3><p className="mt-1 text-sm text-muted-foreground">Choose how much to allocate and close a copy anytime — proceeds return to your available cash.</p></div></div>
+        </div>
+      </section>
+
+      <section className="border-t border-border bg-muted/30 py-16">
+        <div className="mx-auto max-w-7xl px-4">
+          <h2 className="text-2xl font-semibold">Featured traders</h2>
+          <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {traders.map((t) => (
+              <article key={t.name} className="glass rounded-2xl p-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
+                    {t.name.split(" ").map((p) => p[0]).join("")}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">{t.name}</h3>
+                    <p className="text-xs text-muted-foreground">{t.strategy} · {t.risk}</p>
+                  </div>
+                </div>
+                <p className="mt-4 text-sm text-muted-foreground">{t.bio}</p>
+                <dl className="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
+                  <div><dt className="text-xs text-muted-foreground">12m return</dt><dd className="font-semibold text-success">{t.return12m}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Win rate</dt><dd className="font-semibold">{t.winRate}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Copiers</dt><dd className="font-semibold">{t.copiers.toLocaleString()}</dd></div>
+                </dl>
+              </article>
+            ))}
+          </div>
+          <div className="mt-10 text-center">
+            <Button asChild variant="hero"><Link to="/auth" search={{ mode: "signup" }}>Open an account to start copying</Link></Button>
+          </div>
+        </div>
       </section>
     </div>
   );
